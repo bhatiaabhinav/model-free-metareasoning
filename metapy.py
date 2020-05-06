@@ -4,7 +4,6 @@ import sys
 import matplotlib.pyplot as plt
 
 import env
-import fourier_agent
 import table_agent
 import utils
 
@@ -20,7 +19,6 @@ def main():
     parser.add_argument("-method", type=str, required=True, help="The reinforcement learning agent")
     parser.add_argument("-problem", type=str, required=True, help="The problem file")
     parser.add_argument("-function", type=str, required=False, help="The function approximation")
-    parser.add_argument("-order", type=int, required=False, help="The Fourier basis order")
     parser.add_argument("-gamma", type=float, required=True, help="The discount factor")
     parser.add_argument("-alpha", type=float, required=True, help="The learning rate")
     parser.add_argument("-epsilon", type=float, required=True, help="The initial epsilon-greedy probability")
@@ -43,8 +41,6 @@ def main():
 
     if not args.function:
         prakhar = table_agent.Agent(params, metareasoning_env)
-    elif args.function == "fourier":
-        prakhar = fourier_agent.Agent(params, metareasoning_env)
     else:
         print("Encountered an unrecognized function approximation:", args.function)
         sys.exit()

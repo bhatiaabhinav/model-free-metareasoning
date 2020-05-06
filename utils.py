@@ -28,7 +28,7 @@ def digitize(item, bins):
     return len(bins) - 1
 
 
-def get_dataset(problem_file, increment, transformer):
+def get_dataset(problem_file, increment, transformer=None):
     instances = load(problem_file)
 
     dataset = []
