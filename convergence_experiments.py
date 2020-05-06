@@ -4,18 +4,16 @@ import env
 import table_agent
 import utils
 
+PROBLEM_DIRECTORY = "problems/"
+RESULTS_DIRECTORY = "statistics/"
+
+PROBLEM_FILE = "test.json"
+
 WINDOW_SIZE = 50
 PLOT_WINDOW_SIZE = 350
 
-PROBLEM_DIRECTORY = "problems/"
-RESULTS_DIRECTORY = "statistics/"
-PLOTS_DIRECTORY = "plots/"
-
-NAME = "test"
-PROBLEM_FILE = NAME + ".json"
-
 ALPHA = 100
-BETA = 0
+BETA = 0.08
 INCREMENT = 1
 
 PROBLEM_FILE_PATH = PROBLEM_DIRECTORY + PROBLEM_FILE
@@ -57,7 +55,7 @@ def run():
         "epsilon": 0.1,
         "gamma": 1.0,
         "decay": 0.999,
-        "episodes": 500
+        "episodes": 5000
     })
     print("Error: {} +/- {}".format(tabular_sarsa_results["mean_error"], tabular_sarsa_results["standard_deviation_error"]))
 
@@ -66,7 +64,7 @@ def run():
         "epsilon": 0.1,
         "gamma": 1.0,
         "decay": 0.999,
-        "episodes": 500
+        "episodes": 5000
     })
     print("Error: {} +/- {}".format(tabular_q_learning_results["mean_error"], tabular_q_learning_results["standard_deviation_error"]))
 
@@ -89,35 +87,6 @@ def run():
 
     plt.tight_layout()
     plt.show()
-
-
-def plot():
-    figure = plt.figure(figsize=(6, 5))
-    plt.rcParams["font.family"] = "Times New Roman"
-    plt.rcParams["font.size"] = 16
-    plt.rcParams["grid.linestyle"] = "-"
-    plt.xlabel("Episodes")
-    plt.ylabel("Utility")
-    plt.grid(True)
-
-    axis = plt.gca()
-    axis.spines["top"].set_visible(False)
-    axis.spines["right"].set_visible(False)
-
-    tabular_sarsa_statistics = utils.load(RESULTS_DIRECTORY + "tabular-sarsa-[0.1]-[0.1]-{}.json".format(NAME))
-    tabular_q_learning_statistics = utils.load(RESULTS_DIRECTORY + "tabular-q-[0.1]-[0.1]-{}.json".format(NAME))
-
-    tabular_sarsa_utitilities = utils.get_smoothed_values(tabular_sarsa_statistics["utilities"], PLOT_WINDOW_SIZE)
-    tabular_q_learning_utilities = utils.get_smoothed_values(tabular_q_learning_statistics["utilities"], PLOT_WINDOW_SIZE)
-
-    p1 = plt.plot(range(len(tabular_sarsa_utitilities)), tabular_sarsa_utitilities, color="khaki")
-    p2 = plt.plot(range(len(tabular_q_learning_utilities)), tabular_q_learning_utilities, color="seagreen")
-
-    plt.legend((p1[0], p2[0]), ("SARSA(Table)", "Q-learning(Table)"), loc=4, fontsize="small")
-
-    plt.tight_layout()
-
-    figure.savefig('test.pdf', bbox_inches="tight")
 
 
 def test():

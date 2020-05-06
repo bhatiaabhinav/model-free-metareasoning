@@ -47,20 +47,6 @@ def get_time_dependent_utility(quality, time, alpha, beta):
     return alpha * quality - math.exp(beta * time)
 
 
-def get_convergence_point(data, threshold, period):
-    threshold_iterations = 0
-
-    for i in range(len(data) - 1):
-        difference = abs(data[i] - data[i - 1])
-
-        if difference <= threshold:
-            threshold_iterations += 1
-            if threshold_iterations >= period:
-                return {"episode": i, "error": data[i]}
-        else:
-            threshold_iterations = 0
-
-
 def get_smoothed_values(data, window_size):
     smoothed_values = []
 
