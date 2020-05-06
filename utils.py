@@ -28,17 +28,13 @@ def digitize(item, bins):
     return len(bins) - 1
 
 
-def get_dataset(problem_file, increment, transformer=None):
+def get_dataset(problem_file, increment):
     instances = load(problem_file)
 
     dataset = []
     for instance in instances.values():
         entries = list(enumerate(instance["estimated_qualities"]))
-
-        if transformer:
-            dataset.append([(transformer(quality), round(time / increment)) for time, quality in entries[0:len(entries):increment]])
-        else:
-            dataset.append([(quality, round(time / increment)) for time, quality in entries[0:len(entries):increment]])
+        dataset.append([(quality, round(time / increment)) for time, quality in entries[0:len(entries):increment]])
 
     return dataset
 

@@ -28,7 +28,7 @@ class Agent:
 
             while True:
                 next_state, reward, is_episode_done = self.env.step(action)
-
+                
                 current_value = self.action_value_function[state][action]
                 estimated_value = reward + self.params["gamma"] * max(self.action_value_function[next_state])
                 value_error = estimated_value - current_value
