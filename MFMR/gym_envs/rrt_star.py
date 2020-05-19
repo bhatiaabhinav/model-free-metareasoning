@@ -11,6 +11,9 @@ class RRTStar(AnytimeAlgo):
 
     def reset(self):
         # Create a new map here
+        ####
+
+        ####
         return super().reset()
 
     def step(self, action):
