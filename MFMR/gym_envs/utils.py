@@ -1,9 +1,6 @@
 import json
 import math
 
-import numpy as np
-import scipy.stats as stats
-
 
 def save(filename, data):
     with open(filename, "w") as file:
