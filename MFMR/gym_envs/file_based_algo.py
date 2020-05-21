@@ -10,8 +10,8 @@ class FileBasedAlgo(gym.Env):
     STOP_ACTION = 0
     CONTINUE_ACTION = 1
 
-    QUALITY_CLASS_COUNT = 50
-    TIME_CLASS_COUNT = 50
+    QUALITY_CLASS_COUNT = 100
+    TIME_CLASS_COUNT = 100
 
     def __init__(self, problem_file_path, alpha, beta, increment, discretization):
         super().__init__()
