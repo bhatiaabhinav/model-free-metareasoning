@@ -26,6 +26,9 @@ class FileBasedAlgo(gym.Env):
 
         self.discretization = discretization
 
+        self.observation_space = gym.spaces.Box(([2]))
+        self.action_space = gym.spaces.Discrete(2)
+
     def get_reward(self):
         previous_quality, previous_time = self.get_previous_state()
         current_quality, current_time = self.get_current_state()
