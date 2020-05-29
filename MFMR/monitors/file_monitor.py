@@ -3,7 +3,7 @@ import random
 import numpy as np
 
 import gym
-import utils
+from . import utils
 
 
 class FileBasedAlgo(gym.Env):
@@ -26,7 +26,10 @@ class FileBasedAlgo(gym.Env):
 
         self.discretization = discretization
 
-        self.observation_space = gym.spaces.Box(([2]))
+        if self.discretization:
+            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.int)
+        else:
+            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
         self.action_space = gym.spaces.Discrete(2)
 
     def get_reward(self):
@@ -85,10 +88,10 @@ class FileBasedAlgo(gym.Env):
 
     def step(self, action):
         if action == self.STOP_ACTION or self.is_episode_done():
-            return self.get_current_state(), 0, True
+            return self.get_current_state(), 0, True, {}
 
         self.state_id += 1
-        return self.get_current_state(), self.get_reward(), False
+        return self.get_current_state(), self.get_reward(), False, {}
 
     def render(self, mode='human'):
         raise NotImplementedError()
@@ -99,7 +102,7 @@ class FileBasedAlgo(gym.Env):
 
 def main():
     print("Testing the environment...")
-    env = FileBasedAlgo("../problems/test.json", 200, 0.3, 5, True)
+    env = FileBasedAlgo("problems/test.json", 200, 0.3, 5, True)
 
     print("Running episode 1...")
     print(env.reset())
