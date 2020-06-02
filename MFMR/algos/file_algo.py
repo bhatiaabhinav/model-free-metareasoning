@@ -10,53 +10,44 @@ class FileAlgo(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, problem_file_path, increment, discretization):
-        super().__init__()
+    def __init__(self, mem, problem_file_path, increment, discretization):
+        super().__init__(mem)
         self.dataset = utils.get_dataset(problem_file_path, increment)
         self.instance_id = 0
-        self.state_id = 0
         self.discretization = discretization
         self._interrupted = False
 
     def reset(self):
         self.instance_id = random.randint(0, len(self.dataset) - 1)
-        self.state_id = 0
-        self._interrupted = False
+        print(f"This instance {self.instance_id} has {len(self.dataset[self.instance_id])} states")
+        self.mem['state_id'] = 0
+        self.mem['interrupted'] = 0
 
     def run(self):
-        '''
-        Calling this method will synchronously start the algorithm. Make sure you called reset before run.
-        After the method returns, `stopped` should return True.
-        It is expected that this method will be invoked asynchronously using python threads or process module. The method will keep updating the appropriate variables of the algo object so that other methods like `get_obs` and `update_hyperparams` work as expected'''
-        while not self._interrupted and self.state_id < len(self.dataset[self.instance_id]) - 1:
-            self.state_id += 1
-            # print("New iteration!", self.state_id, "q,t:", self.dataset[self.instance_id][self.state_id])
-            tm.sleep(0.01)
+        print(f"Started instance {self.instance_id}")
+        while not self.mem['interrupted'] and self.mem['state_id'] < len(self.dataset[self.instance_id]) - 1:
+            tm.sleep(0.25)  # Do some work
+            self.mem['state_id'] += 1
+            print("Did new iteration!", self.mem['state_id'], "q,t:", self.dataset[self.instance_id][self.mem['state_id']])
+        print("Finished")
 
     def update_hyperparams(self, hyperparams):
-        '''sets new hyperparams. Race conditions, locks etc are taken care of here'''
         pass
 
     def get_hyperparam_space(self) -> gym.Space:
-        ''' Hyperparameter space. Does NOT include 'STOP/CONT' space'''
         return gym.spaces.Box(np.array([]), np.array([]))
 
     def interrupt(self):
-        '''Issues a shutdown signal to gracefully stop `run`.
-        '''
-        self._interrupted = True
+        self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
-        '''Space of `get_obs`'''
         if self.discretization:
             return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.int)
         else:
             return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
 
     def get_obs(self):
-        '''
-        Returns how the algo wants to be 'seen'. Can include quality, time, and other variables - appropriately discretized sometimes'''
-        raw_state = self.dataset[self.instance_id][self.state_id]
+        raw_state = self.dataset[self.instance_id][self.mem['state_id']]
         return self.get_discretized_state(raw_state)
 
     def get_discretized_state(self, raw_state):
@@ -69,17 +60,12 @@ class FileAlgo(AsyncAlgo):
         return raw_state
 
     def get_solution_quality(self):
-        '''should return a float scalar - the solution quality right now.
-        Need not be same as the quality exposed in get_obs. For example, quality in get_obs could be discretized
-        This quality will be used to evaluate the meta-level utility'''
-        raw_state = self.dataset[self.instance_id][self.state_id]
+        raw_state = self.dataset[self.instance_id][self.mem['state_id']]
         quality, time = self.get_discretized_state(raw_state)
         return quality
 
     def get_time(self):
-        '''should return a float scalar - some notion of time since the algorithm started. Deliberately delegated to this algo class: the algo may choose it to be simply time in seconds, or something like number of nodes expanded
-        This time will be used to evaluate the meta-level utility'''
-        raw_state = self.dataset[self.instance_id][self.state_id]
+        raw_state = self.dataset[self.instance_id][self.mem['state_id']]
         quality, time = self.get_discretized_state(raw_state)
         return time
 

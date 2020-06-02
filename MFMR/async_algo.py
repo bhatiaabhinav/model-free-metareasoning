@@ -5,9 +5,12 @@ import numpy as np
 class AsyncAlgo:
     '''Base class for implemented asynchronously monitored anytime algorithms.'''
 
-    def __init__(self):
-        '''The concrete class can set default hyperparameters and settings here using constructor arguments'''
-        pass
+    def __init__(self, mem):
+        '''
+        The concrete class can set default hyperparameters and settings here using constructor arguments.
+        mem should be a shared memory dictionary created using process.Manager().dict()
+        '''
+        self.mem = mem
 
     def reset(self):
         '''
@@ -18,9 +21,7 @@ class AsyncAlgo:
 
     def run(self):
         '''
-        Calling this method will synchronously start the algorithm. Make sure you called reset before run.
-        After the method returns, `stopped` should return True.
-        It is expected that this method will be invoked asynchronously using python threads or process module. The method will keep updating the appropriate variables of the algo object so that other methods like `get_obs` and `update_hyperparams` work as expected'''
+        Make sure you called reset before run. It is expected that this method will be invoked as a seperate process using process module. The method will keep updating the appropriate variables in self.mem so that other methods like `get_obs` and `update_hyperparams` work as expected'''
         raise NotImplementedError()
 
     def update_hyperparams(self, hyperparams):

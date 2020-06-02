@@ -1,4 +1,5 @@
-from multiprocessing import Process
+from multiprocessing import Process, Manager
+import signal
 
 import gym
 import numpy as np  # noqa
@@ -56,15 +57,19 @@ class AsyncAlgoMonitor(gym.Env):
             self.run_process.join()
             done = True
             info['interrupted'] = False
+            info['graceful_exit'] = True
         else:
             if not cont_decision:
                 self.algo.interrupt()
-                try:
-                    self.run_process.join(timeout=1)
-                except e:
+                self.run_process.join(timeout=1)  # give it a second to allow graceful termination
+                if self.run_process.exitcode is None:  # i.e. not yet terminated
+                    print('Sending SIGTERM to process')
                     self.run_process.terminate()
+                    self.run_process.join(timeout=1)
+                    assert self.run_process.exitcode is not None, "Should have terminated by now!"
                 done = True
-                info['Interrupted'] = True
+                info['interrupted'] = True
+                info['graceful_exit'] = not (self.run_process.exitcode == -signal.SIGTERM)
             else:
                 self.algo.update_hyperparams(hyperparams)
 
@@ -95,7 +100,7 @@ class AsyncAlgoMonitor(gym.Env):
 def main():
     print("Testing the environment...")
     from MFMR.algos.file_algo import FileAlgo
-    algo = FileAlgo("problems/test.json", 5, True)
+    algo = FileAlgo(Manager().dict(), "problems/test.json", 5, True)
     env = AsyncAlgoMonitor(algo, 200, 0.3)
     import time as tm
     import random
@@ -106,31 +111,35 @@ def main():
 
     print("Running episode 1...")
     print(env.reset())
-    tm.sleep(1)
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
-    tm.sleep(1)
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
-    tm.sleep(1)
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
-    tm.sleep(1)
+    tm.sleep(0.5)
     print(env.step((env.STOP_ACTION, hyperparams)))
 
     print("Running episode 2...")
     print(env.reset())
-    tm.sleep(0.01)
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
-    tm.sleep(0.01)
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
-    tm.sleep(0.01)
+    tm.sleep(0.5)
     print(env.step((env.STOP_ACTION, hyperparams)))
-    tm.sleep(0.01)
 
     print("Running episode 3...")
     print(env.reset())
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
+    tm.sleep(0.5)
     print(env.step((env.CONTINUE_ACTION, hyperparams)))
+    tm.sleep(0.5)
     print(env.step((env.STOP_ACTION, hyperparams)))
 
 
