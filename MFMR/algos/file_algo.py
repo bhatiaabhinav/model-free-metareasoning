@@ -15,7 +15,6 @@ class FileAlgo(AsyncAlgo):
         self.dataset = utils.get_dataset(problem_file_path, increment)
         self.instance_id = 0
         self.discretization = discretization
-        self._interrupted = False
 
     def reset(self):
         self.instance_id = random.randint(0, len(self.dataset) - 1)
