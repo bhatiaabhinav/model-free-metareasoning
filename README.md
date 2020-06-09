@@ -13,6 +13,13 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
+# Test Installation
+
+After activating virtual environment, from repo folder:
+```bash
+pytest Tests/
+```
+
 
 ## Running with Deep RL as the metareasoner
 
