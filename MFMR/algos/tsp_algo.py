@@ -8,6 +8,7 @@ import sys
 import re
 import itertools
 import os
+from multiprocessing import Manager
 
 
 FILE_TEMPLATE = """NAME : %s
@@ -31,8 +32,8 @@ class TSP(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, mem, instances_directory, index_file_path, discretization):
-        super().__init__(mem)
+    def __init__(self, instances_directory, index_file_path, discretization):
+        super().__init__(Manager().dict())
         self.iterations = ITERATIONS
         self.discretization = discretization
         self.problems = []  # List of Tuples: (cities, start_city, optimal_cost)

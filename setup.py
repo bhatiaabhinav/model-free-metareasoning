@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name="Model-Free-Metareasoning",
-    version="0.2.0a",
+    version="0.3.0a",
     author="Justin Svegliato, Abhinav Bhatia",
     author_email="justin.svegliato@gmail.com, bhatiaabhinav93@gmail.com",
     description=("Model Free Metareasoning Experiments"),
@@ -27,6 +27,6 @@ setup(
         'matplotlib>=3.2.0',
         'numpy>=1.18.1',
         'pytest>=5.4.1',
-        'scipy>=1.4.1',
+        'scipy>=1.4.1'
     ]
 )

@@ -1,34 +1,37 @@
-import gym
-import numpy as np
-from MFMR.monitors import utils
 import random
 import time as tm
+from multiprocessing import Manager
+
+import gym
+import numpy as np
+
 from MFMR.async_algo import AsyncAlgo
+from MFMR.monitors import utils
 
 
 class FileAlgo(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, mem, problem_file_path, increment, discretization):
-        super().__init__(mem)
+    def __init__(self, problem_file_path, increment, discretization):
+        super().__init__(Manager().dict())
         self.dataset = utils.get_dataset(problem_file_path, increment)
         self.instance_id = 0
         self.discretization = discretization
 
     def reset(self):
         self.instance_id = random.randint(0, len(self.dataset) - 1)
-        print(f"This instance {self.instance_id} has {len(self.dataset[self.instance_id])} states")
+        # print(f"This instance {self.instance_id} has {len(self.dataset[self.instance_id])} states")
         self.mem['state_id'] = 0
         self.mem['interrupted'] = 0
 
     def run(self):
-        print(f"Started instance {self.instance_id}")
+        # print(f"Started instance {self.instance_id}")
         while not self.mem['interrupted'] and self.mem['state_id'] < len(self.dataset[self.instance_id]) - 1:
-            tm.sleep(0.25)  # Do some work
+            tm.sleep(1 / 120)  # Do some work # 120 FPS
             self.mem['state_id'] += 1
-            print("Did new iteration!", self.mem['state_id'], "q,t:", self.dataset[self.instance_id][self.mem['state_id']])
-        print("Finished")
+            # print("Did new iteration!", self.mem['state_id'], "q,t:", self.dataset[self.instance_id][self.mem['state_id']])
+        # print("Finished")
 
     def update_hyperparams(self, hyperparams):
         pass
@@ -53,7 +56,8 @@ class FileAlgo(AsyncAlgo):
         if self.discretization:
             raw_quality, raw_time = raw_state
             quality_bounds = np.linspace(0, 1, self.QUALITY_CLASS_COUNT)
-            time_bounds = np.linspace(0, self.TIME_CLASS_COUNT, self.TIME_CLASS_COUNT)
+            time_bounds = np.linspace(
+                0, self.TIME_CLASS_COUNT, self.TIME_CLASS_COUNT)
             return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
 
         return raw_state
