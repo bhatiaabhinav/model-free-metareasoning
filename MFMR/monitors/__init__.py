@@ -1,43 +1,13 @@
 from gym.envs import register
 
-register('RRTStar-Easy-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': False,
-    'n_obstacles': 0
-})
+from MFMR.algos.file_algo import FileAlgo
 
-register('RRTSrar-Medium-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': False,
-    'n_obstacles': 1
-})
-
-register('RRTStar-Hard-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': False,
-    'n_obstacles': 2
-})
-
-register('RRTStar-Easy-Random-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': True,
-    'n_obstacles': 0
-})
-
-register('RRTStar-Medium-Random-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': True,
-    'n_obstacles': 1
-})
-
-register('RRTStar-Hard-Random-v0', entry_point='MMFR.gym_envs.rrt_star:RRTStar', kwargs={
-    'gamma': 0.99,
-    'map_size': (1, 1),
-    'random_map_every_reset': True,
-    'n_obstacles': 2
+register('FileAlgoTest-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor', kwargs={
+    'alpha': 200,
+    'beta': 0.3,
+    'monitoring_interval': 1 / 60,  # 60 FPS
+    'algo_cls': FileAlgo,
+    'problem_file_path': "problems/test.json",
+    'increment': 5,
+    'discretization': True
 })
