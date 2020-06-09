@@ -36,9 +36,9 @@ class AsyncAlgoMonitor(gym.Env):
         assert self.run_process is None, "Old Episode Still Exists?"
         self.algo.reset()
         obs = self.algo.get_obs()
+        self.cur_utility = self.get_cur_utility()
         self.run_process = Process(target=self.algo.run)
         self.run_process.start()
-        self.cur_utility = self.get_cur_utility()
         return obs
 
     def step(self, action):

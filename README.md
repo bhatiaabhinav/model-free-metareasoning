@@ -25,7 +25,10 @@ pytest Tests/
 
 Install [RL-v2](https://github.com/bhatiaabhinav/RL-v2) library :
 ```bash
-pip install git+https://github.com/bhatiaabhinav/RL-v2.git
+cd ./..  # get out of repo folder
+git clone git+https://github.com/bhatiaabhinav/RL-v2.git
+pip install -e RL-v2
+cd model-free-metareasoning
 ```
 You will optionally need a [Weights & Biases](https://www.wandb.com/) account to visualize RL runs i.e. to see graphs, comparisons etc. You will be asked to login with your account token on running an experiment for the first time on your machine.
 
