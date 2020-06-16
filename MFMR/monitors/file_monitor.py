@@ -1,8 +1,8 @@
 import random
 
+import gym
 import numpy as np
 
-import gym
 from . import utils
 
 
@@ -27,17 +27,21 @@ class FileBasedAlgo(gym.Env):
         self.discretization = discretization
 
         if self.discretization:
-            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.int)
+            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array(
+                [self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.int)
         else:
-            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
+            self.observation_space = gym.spaces.Box(low=np.array([0, 0]), high=np.array(
+                [self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
         self.action_space = gym.spaces.Discrete(2)
 
     def get_reward(self):
         previous_quality, previous_time = self.get_previous_state()
         current_quality, current_time = self.get_current_state()
 
-        previous_utility = utils.get_time_dependent_utility(previous_quality, previous_time, self.alpha, self.beta)
-        current_utility = utils.get_time_dependent_utility(current_quality, current_time, self.alpha, self.beta)
+        previous_utility = utils.get_time_dependent_utility(
+            previous_quality, previous_time, self.alpha, self.beta)
+        current_utility = utils.get_time_dependent_utility(
+            current_quality, current_time, self.alpha, self.beta)
 
         return current_utility - previous_utility
 
@@ -51,7 +55,8 @@ class FileBasedAlgo(gym.Env):
 
         for raw_state in self.dataset[self.instance_id]:
             quality, time = self.get_discretized_state(raw_state)
-            utility = utils.get_time_dependent_utility(quality, time, self.alpha, self.beta)
+            utility = utils.get_time_dependent_utility(
+                quality, time, self.alpha, self.beta)
 
             if utility > max_utility:
                 max_utility = utility
@@ -62,7 +67,8 @@ class FileBasedAlgo(gym.Env):
         if self.discretization:
             raw_quality, raw_time = raw_state
             quality_bounds = np.linspace(0, 1, self.QUALITY_CLASS_COUNT)
-            time_bounds = np.linspace(0, self.TIME_CLASS_COUNT, self.TIME_CLASS_COUNT)
+            time_bounds = np.linspace(
+                0, self.TIME_CLASS_COUNT, self.TIME_CLASS_COUNT)
             return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
 
         return raw_state
@@ -98,33 +104,3 @@ class FileBasedAlgo(gym.Env):
 
     def close(self):
         raise NotImplementedError()
-
-
-def main():
-    print("Testing the environment...")
-    env = FileBasedAlgo("problems/test.json", 200, 0.3, 5, True)
-
-    print("Running episode 1...")
-    print(env.reset())
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.STOP_ACTION))
-
-    print("Running episode 2...")
-    print(env.reset())
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.STOP_ACTION))
-
-    print("Running episode 3...")
-    print(env.reset())
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.CONTINUE_ACTION))
-    print(env.step(env.STOP_ACTION))
-
-
-if __name__ == "__main__":
-    main()

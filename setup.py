@@ -13,7 +13,7 @@ def read(fname):
 
 setup(
     name="Model-Free-Metareasoning",
-    version="0.4.0a",
+    version="0.5.0a",
     author="Justin Svegliato, Abhinav Bhatia",
     author_email="justin.svegliato@gmail.com, bhatiaabhinav93@gmail.com",
     description=("Model Free Metareasoning Experiments"),

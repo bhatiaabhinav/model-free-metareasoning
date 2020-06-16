@@ -25,8 +25,13 @@ class AsyncAlgoMonitor(gym.Env):
 
         # set action space
         # It is a mixed action space: Dicrete(2) X HyperparamSpace
-        self.action_space = gym.spaces.Tuple(
-            (gym.spaces.Discrete(2), self.algo.get_hyperparam_space()))
+        self.hyperparam_space = self.algo.get_hyperparam_space()
+        self.has_hyperparams = self.hyperparam_space.shape[0] > 0
+        if self.has_hyperparams:
+            self.action_space = gym.spaces.Tuple(
+                (gym.spaces.Discrete(2), self.hyperparam_space))
+        else:
+            self.action_space = gym.spaces.Discrete(2)  # Just STOP/CONTINUE
 
     def reset(self):
         if self.run_process is not None:
@@ -50,7 +55,10 @@ class AsyncAlgoMonitor(gym.Env):
         '''
         assert self.action_space.contains(
             action), f"Invalid action. Action space is {self.action_space}"
-        cont_decision, hyperparams = action
+        if self.has_hyperparams:
+            cont_decision, hyperparams = action
+        else:
+            cont_decision = action
 
         done = False
         info = {'interrupted': False}
@@ -77,7 +85,8 @@ class AsyncAlgoMonitor(gym.Env):
                 info['graceful_exit'] = not (
                     self.run_process.exitcode == -signal.SIGTERM)
             else:
-                self.algo.update_hyperparams(hyperparams)
+                if self.has_hyperparams:
+                    self.algo.update_hyperparams(hyperparams)
                 time.sleep(self.monitoring_interval)
 
         info['solution_quality'] = self.algo.get_solution_quality()
@@ -102,51 +111,3 @@ class AsyncAlgoMonitor(gym.Env):
     def close(self):
         '''GYM API. Close and cleanup any rendering related objects'''
         return self.algo.close()
-
-
-def main():
-    print("Testing the environment...")
-    from MFMR.algos.file_algo import FileAlgo
-    env = AsyncAlgoMonitor(200, 0.3, 0.5, FileAlgo,
-                           "problems/test.json", 5, True)
-    import random
-
-    random.seed(0)
-
-    hyperparams = np.array([])
-
-    print("Running episode 1...")
-    print(env.reset())
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.STOP_ACTION, hyperparams)))
-
-    print("Running episode 2...")
-    print(env.reset())
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.STOP_ACTION, hyperparams)))
-
-    print("Running episode 3...")
-    print(env.reset())
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.CONTINUE_ACTION, hyperparams)))
-
-    print(env.step((env.STOP_ACTION, hyperparams)))
-
-
-if __name__ == "__main__":
-    main()
