@@ -171,7 +171,7 @@ class Tsp(AsyncAlgo):
         self.mem['interrupted'] = False
 
     def run(self):
-        print("Started")
+        # print("Started")
 
         tour = self.mem['tour']
         distance = self.mem['cost']
@@ -204,7 +204,7 @@ class Tsp(AsyncAlgo):
             if not has_changed or self.mem['interrupted']:
                 break
 
-        print("Finished")
+        # print("Finished")
 
     def update_hyperparams(self, hyperparams):
         pass
