@@ -64,12 +64,12 @@ class FileAlgo(AsyncAlgo):
 
     def get_solution_quality(self):
         raw_state = self.dataset[self.instance_id][self.mem['state_id']]
-        quality, time = self.get_discretized_state(raw_state)
+        quality, time = raw_state
         return quality
 
     def get_time(self):
         raw_state = self.dataset[self.instance_id][self.mem['state_id']]
-        quality, time = self.get_discretized_state(raw_state)
+        quality, time = raw_state
         return time
 
     def render(self, mode='human'):

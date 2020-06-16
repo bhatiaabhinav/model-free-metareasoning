@@ -98,6 +98,12 @@ class AsyncAlgoMonitor(gym.Env):
 
         return self.algo.get_obs(), reward, done, info
 
+    def get_solution_quality(self):
+        return self.algo.get_solution_quality()
+
+    def get_time(self):
+        return self.algo.get_time()
+
     def get_cur_utility(self):
         '''time dependent utility'''
         quality = self.algo.get_solution_quality()

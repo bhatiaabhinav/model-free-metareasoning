@@ -1,15 +1,17 @@
-import gym
-import numpy as np
-from MFMR.monitors import utils
-from MFMR.utils import get_csv_dictionary
-import random
-from MFMR.async_algo import AsyncAlgo
-import sys
-import re
 import itertools
 import os
+import random
+import re
+import sys
+import time as tm
 from multiprocessing import Manager
 
+import gym
+import numpy as np
+
+from MFMR.async_algo import AsyncAlgo
+from MFMR.monitors import utils
+from MFMR.utils import get_csv_dictionary
 
 FILE_TEMPLATE = """NAME : %s
 COMMENT : %s
@@ -25,10 +27,10 @@ COMMENT = "No Comment"
 CITY_PATTERN = "\d+ (\d+) (\d+)"  # noqa
 DELIMITER = "\n"
 
-ITERATIONS = 2000
+ITERATIONS = 100
 
 
-class TSP(AsyncAlgo):
+class Tsp(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
@@ -36,7 +38,8 @@ class TSP(AsyncAlgo):
         super().__init__(Manager().dict())
         self.iterations = ITERATIONS
         self.discretization = discretization
-        self.problems = []  # List of Tuples: (cities, start_city, optimal_cost)
+        # List of Tuples: (cities, start_city, optimal_cost)
+        self.problems = []
         optimal_costs = get_csv_dictionary(index_file_path)
         for file in os.listdir(instances_directory):
             if file.endswith(".tsp"):
@@ -76,7 +79,8 @@ class TSP(AsyncAlgo):
         for start_city in cities:
             graph[start_city] = {}
             for end_city in cities:
-                graph[start_city][end_city] = self.get_distance(start_city, end_city)
+                graph[start_city][end_city] = self.get_distance(
+                    start_city, end_city)
         return graph
 
     def get_nearest_city_distance(self, start_city, cities):
@@ -121,7 +125,7 @@ class TSP(AsyncAlgo):
                 cost += self.get_distance(parent_city, child_city)
         return cost + 2 * self.get_nearest_city_distance(start_city, cities)
 
-    def get_instance(size, start_position, end_position, minimum_distance):
+    def get_instance(self, size, start_position, end_position, minimum_distance):
         choices = np.arange(start_position, end_position, minimum_distance)
         cities = set()
         while len(cities) < size:
@@ -130,7 +134,7 @@ class TSP(AsyncAlgo):
             cities.add((x, y))
         return cities
 
-    def save_instance(name, cities):
+    def save_instance(self, name, cities):
         size = len(cities)
         node_coord_section = ""
         for i, city in enumerate(cities):
@@ -142,7 +146,7 @@ class TSP(AsyncAlgo):
         f.write(instance)
         f.close()
 
-    def load_instance(filename):
+    def load_instance(self, filename):
         cities = set()
         with open(filename) as f:
             lines = f.readlines()
@@ -159,8 +163,10 @@ class TSP(AsyncAlgo):
     def reset(self):
         self.instance_id = random.randint(0, len(self.problems) - 1)
         self.cities, self.start_city, self.optimal_cost = self.problems[self.instance_id]
-        self.mem['tour'] = self.get_initial_random_tour(self.cities, self.start_city)
+        self.mem['tour'] = self.get_initial_random_tour(
+            self.cities, self.start_city)
         self.mem['cost'] = self.get_tour_distance(self.mem['tour'])
+        self.mem['start_time'] = tm.time()
         self.mem['time'] = 0
         self.mem['interrupted'] = False
 
@@ -175,7 +181,8 @@ class TSP(AsyncAlgo):
             best_tour = tour
             best_distance = distance
             for first_key, second_key in itertools.combinations(cities, 2):
-                current_tour = self.get_mutated_tour(tour, first_key, second_key)
+                current_tour = self.get_mutated_tour(
+                    tour, first_key, second_key)
                 current_distance = self.get_tour_distance(current_tour)
 
                 if current_distance < best_distance:
@@ -186,12 +193,13 @@ class TSP(AsyncAlgo):
 
                     has_changed = True
 
+                self.mem['time'] = tm.time() - self.mem['start_time']
+
                 if self.mem['interrupted']:
                     break
 
             tour = best_tour
             distance = best_distance
-            self.mem['time'] += 1  # measuring time as number of outer iterations
 
             if not has_changed or self.mem['interrupted']:
                 break
@@ -222,22 +230,19 @@ class TSP(AsyncAlgo):
         if self.discretization:
             raw_quality, raw_time = raw_state
             quality_bounds = np.linspace(0, 1, self.QUALITY_CLASS_COUNT)
-            time_bounds = np.linspace(0, self.TIME_CLASS_COUNT, self.TIME_CLASS_COUNT)
+            time_bounds = np.linspace(
+                0, 100, self.TIME_CLASS_COUNT)
             return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
 
         return raw_state
 
     def get_solution_quality(self):
-        cost, time = self.mem['cost'], self.mem['time']
+        cost = self.mem['cost']
         quality = self.optimal_cost / cost
-        quality, time = self.get_discretized_state((quality, time))
         return quality
 
     def get_time(self):
-        cost, time = self.mem['cost'], self.mem['time']
-        quality = self.optimal_cost / cost
-        quality, time = self.get_discretized_state((quality, time))
-        return quality
+        return self.mem['time']
 
     def render(self, mode='human'):
         pass
