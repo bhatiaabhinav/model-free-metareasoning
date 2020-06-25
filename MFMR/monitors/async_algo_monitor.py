@@ -77,9 +77,9 @@ class AsyncAlgoMonitor(gym.Env):
                 self.run_process.join(timeout=1)
                 if self.run_process.exitcode is None:  # i.e. not yet terminated
                     print('Sending SIGTERM to process')
-                    self.run_process.terminate()
-                    self.run_process.join(timeout=1)
-                    assert self.run_process.exitcode is not None, "Should have terminated by now!"
+                    while self.run_process.exitcode is not None:
+                        self.run_process.terminate()
+                        self.run_process.join(timeout=0.5)
                 done = True
                 info['interrupted'] = True
                 info['graceful_exit'] = not (
