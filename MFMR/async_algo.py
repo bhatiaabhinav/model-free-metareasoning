@@ -11,6 +11,7 @@ class AsyncAlgo:
         mem should be a shared memory dictionary created using process.Manager().dict()
         '''
         self.mem = mem
+        self.random = np.random.RandomState()
 
     def reset(self):
         '''
@@ -58,6 +59,9 @@ class AsyncAlgo:
         This time will be used to evaluate the meta-level utility
         '''
         raise NotImplementedError()
+
+    def seed(self, seed):
+        self.random.seed(seed)
 
     def render(self, mode='human'):
         pass

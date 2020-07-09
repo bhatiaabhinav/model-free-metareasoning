@@ -1,6 +1,5 @@
 import itertools
 import os
-import random
 import re
 import sys
 import time as tm
@@ -9,9 +8,8 @@ from multiprocessing import Manager
 import gym
 import numpy as np
 
+from MFMR import utils
 from MFMR.async_algo import AsyncAlgo
-from MFMR.monitors import utils
-from MFMR.utils import get_csv_dictionary
 
 FILE_TEMPLATE = """NAME : %s
 COMMENT : %s
@@ -40,7 +38,7 @@ class Tsp(AsyncAlgo):
         self.discretization = discretization
         # List of Tuples: (cities, start_city, optimal_cost)
         self.problems = []
-        optimal_costs = get_csv_dictionary(index_file_path)
+        optimal_costs = utils.get_csv_dictionary(index_file_path)
         for file in os.listdir(instances_directory):
             if file.endswith(".tsp"):
                 instance = os.path.splitext(file)[0]
@@ -52,7 +50,7 @@ class Tsp(AsyncAlgo):
     # ------------------------------------------ helper methods -----------------------------------------------
     def get_initial_random_tour(self, states, start_state):
         adjustable_states = set(states) - set([start_state])
-        return [start_state] + list(np.random.permutation(list(adjustable_states))) + [start_state]
+        return [start_state] + list(self.random.permutation(list(adjustable_states))) + [start_state]
 
     def get_swappable_cities(self, tour):
         return range(1, len(tour) - 1)
@@ -129,8 +127,8 @@ class Tsp(AsyncAlgo):
         choices = np.arange(start_position, end_position, minimum_distance)
         cities = set()
         while len(cities) < size:
-            x = round(random.choice(choices), 3)
-            y = round(random.choice(choices), 3)
+            x = round(self.random.choice(choices), 3)
+            y = round(self.random.choice(choices), 3)
             cities.add((x, y))
         return cities
 
@@ -161,7 +159,7 @@ class Tsp(AsyncAlgo):
     # ----------------------------------------------------------------------------------------------------------
 
     def reset(self):
-        self.instance_id = random.randint(0, len(self.problems) - 1)
+        self.instance_id = self.random.randint(len(self.problems))
         self.cities, self.start_city, self.optimal_cost = self.problems[self.instance_id]
         self.mem['tour'] = self.get_initial_random_tour(
             self.cities, self.start_city)
@@ -222,6 +220,7 @@ class Tsp(AsyncAlgo):
             return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
 
     def get_obs(self):
+        self.mem['time'] = tm.time() - self.mem['start_time']
         cost, time = self.mem['cost'], self.mem['time']
         quality = self.optimal_cost / cost
         return self.get_discretized_state((quality, time))
@@ -242,6 +241,7 @@ class Tsp(AsyncAlgo):
         return quality
 
     def get_time(self):
+        self.mem['time'] = tm.time() - self.mem['start_time']
         return self.mem['time']
 
     def render(self, mode='human'):

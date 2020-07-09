@@ -3,7 +3,7 @@ import random
 import gym
 import numpy as np
 
-from . import utils
+from MFMR import utils
 
 
 class FileBasedAlgo(gym.Env):

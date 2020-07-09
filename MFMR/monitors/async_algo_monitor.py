@@ -110,6 +110,10 @@ class AsyncAlgoMonitor(gym.Env):
         t = self.algo.get_time()
         return self.alpha * quality - np.exp(self.beta * t)
 
+    def seed(self, seed):
+        super().seed()
+        self.algo.seed(seed)
+
     def render(self, mode='human'):
         '''GYM API. Some Nice Visualization'''
         return self.algo.render(mode=mode)

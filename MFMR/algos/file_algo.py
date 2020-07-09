@@ -1,12 +1,11 @@
-import random
 import time as tm
 from multiprocessing import Manager
 
 import gym
 import numpy as np
 
+from MFMR import utils
 from MFMR.async_algo import AsyncAlgo
-from MFMR.monitors import utils
 
 
 class FileAlgo(AsyncAlgo):
@@ -20,7 +19,7 @@ class FileAlgo(AsyncAlgo):
         self.discretization = discretization
 
     def reset(self):
-        self.instance_id = random.randint(0, len(self.dataset) - 1)
+        self.instance_id = self.random.randint(0, len(self.dataset) - 1)
         # print(f"This instance {self.instance_id} has {len(self.dataset[self.instance_id])} states")
         self.mem['state_id'] = 0
         self.mem['interrupted'] = 0
