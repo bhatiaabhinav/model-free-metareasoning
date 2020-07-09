@@ -1,6 +1,9 @@
+import numpy as np
 from gym.envs import register
 
+from MFMR.algos.aastar import AAstar
 from MFMR.algos.file_algo import FileAlgo
+from MFMR.algos.n_puzzle import NPuzzle
 from MFMR.algos.tsp import Tsp
 
 register('FileAlgo-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor', kwargs={
@@ -83,3 +86,24 @@ register('Tsp30Beta0-Cont-v0', entry_point='MFMR.monitors.async_algo_monitor:Asy
     'index_file_path': 'problems/30-tsp/optimal-costs.csv',
     'discretization': False
 })
+
+
+for w in np.arange(1, 2, 0.1):
+    w = np.round(w, 1)
+    for n in range(1, 9):
+        for difficulty_string in ['easy', 'medium', 'hard']:
+            for beta in np.arange(0, 10.1, 0.1):
+                beta = np.round(beta, 1)
+                register(f'A{w}Astar-{n}puzzle-{difficulty_string}-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                         kwargs={
+                             'alpha': 200,
+                             'beta': beta,
+                             'monitoring_interval': 1 / 10,
+                             'algo_cls': AAstar,
+                             'weight': w,
+                             'discretization': False,
+                             'search_problem_cls': NPuzzle,
+                             'n': n,
+                             'difficulty_string': difficulty_string
+                         }
+                         )

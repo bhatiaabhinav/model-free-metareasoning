@@ -6,47 +6,55 @@ import matplotlib.pyplot as plt
 import MFMR.monitors  # noqa
 from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 
-random.seed(0)
-metareasoning_env = gym.make('Tsp30-Cont-v0')  # type: AsyncAlgoMonitor
 
-metareasoning_env.reset()
-quality = metareasoning_env.algo.get_solution_quality()
-qualities = [quality]
+def main():
+    random.seed(0)
+    metareasoning_env = gym.make(
+        'A1.3Astar-4puzzle-medium-B0.4-v0')  # type: AsyncAlgoMonitor
 
-utility = metareasoning_env.get_cur_utility()
-utilities = [utility]
+    # metareasoning_env.seed(0)
+    metareasoning_env.reset()
+    quality = metareasoning_env.algo.get_solution_quality()
+    qualities = [quality]
 
-steps = 0
-
-while True:
-    obs, r, is_episode_done, info = metareasoning_env.step(
-        metareasoning_env.CONTINUE_ACTION)
-
-    steps += 1
-    time = metareasoning_env.get_time()
-    quality = metareasoning_env.get_solution_quality()
-    qualities.append(quality)
     utility = metareasoning_env.get_cur_utility()
-    utilities.append(utility)
+    utilities = [utility]
 
-    print(steps, time, quality, utility)
+    steps = 0
 
-    if is_episode_done:
-        break
+    while True:
+        obs, r, is_episode_done, info = metareasoning_env.step(
+            metareasoning_env.CONTINUE_ACTION)
 
-plt.figure(figsize=(7, 3))
-plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams["font.size"] = 14
-plt.rcParams["grid.linestyle"] = "-"
-plt.xlabel("Steps")
-plt.ylabel("Utilities")
-plt.grid(True)
+        steps += 1
+        time = metareasoning_env.get_time()
+        quality = metareasoning_env.get_solution_quality()
+        qualities.append(quality)
+        utility = metareasoning_env.get_cur_utility()
+        utilities.append(utility)
 
-axis = plt.gca()
-axis.spines["top"].set_visible(False)
-# axis.set_xlim([0, 2 * utilities.index(max(utilities))])
-# axis.set_ylim([utilities[0], 1.05 * max(utilities)])
+        print(steps, time, quality, utility)
 
-plt.plot(range(len(utilities)), utilities, color="r")
-plt.tight_layout()
-plt.show()
+        if is_episode_done:
+            break
+
+    plt.figure(figsize=(7, 3))
+    plt.rcParams["font.family"] = "Times New Roman"
+    plt.rcParams["font.size"] = 14
+    plt.rcParams["grid.linestyle"] = "-"
+    plt.xlabel("Steps")
+    plt.ylabel("Utilities")
+    plt.grid(True)
+
+    axis = plt.gca()
+    axis.spines["top"].set_visible(False)
+    # axis.set_xlim([0, 2 * utilities.index(max(utilities))])
+    # axis.set_ylim([utilities[0], 1.05 * max(utilities)])
+
+    plt.plot(range(len(utilities)), utilities, color="r")
+    plt.tight_layout()
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
