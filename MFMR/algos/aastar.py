@@ -54,68 +54,48 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = False
 
     def run(self):
-        # print("Started")
         problem = self.problem
 
         start_node = Node(problem.start_state)
         start_node_key = get_key(start_node.state)
-        start_node_value = start_node.path_cost + \
-            self.weight * problem.heuristic(start_node.state)
 
         open_list = OpenList()
-        open_list.add(start_node, start_node_value)
+        open_list.add(start_node, self.weight * problem.heuristic(start_node.state))
 
         closed_set = set()
-        best_value = float('inf')
+        best_node_value = float('inf')
 
-        generated_states = set()
-        generated_states.add(start_node_key)
-
-        path_costs = {
-            start_node_key: start_node.path_cost
-        }
+        path_costs = {start_node_key: start_node.path_cost}
 
         while open_list:
             current_node = open_list.remove()
-            current_node_value = current_node.path_cost + \
-                problem.heuristic(current_node.state)
+            current_node_key = get_key(current_node.state)
+            current_node_value = current_node.path_cost + problem.heuristic(current_node.state)
 
-            if current_node_value < best_value:
-                current_node_key = get_key(current_node.state)
+            if current_node_value < best_node_value:
                 closed_set.add(current_node_key)
 
                 for child_node in problem.get_children_nodes(current_node):
-                    child_node_value = child_node.path_cost + \
-                        problem.heuristic(child_node.state)
+                    child_node_value = child_node.path_cost + problem.heuristic(child_node.state)
                     child_node_key = get_key(child_node.state)
 
-                    if child_node_value < best_value:
+                    if child_node_value < best_node_value:
                         if problem.goal_test(child_node.state):
                             path_costs[child_node_key] = child_node.path_cost
-                            best_value = child_node_value
+                            best_node_value = child_node_value
 
-                            solution = child_node.get_solution()
-                            cost = len(solution)
-
-                            self.mem['solution'] = solution
-                            self.mem['cost'] = cost
-
-                            # print({'cost': cost, 'solution': solution})
+                            self.mem['solution'] = child_node.get_solution()
+                            self.mem['cost'] = len(self.mem['solution'])
                         elif child_node_key in closed_set or child_node in open_list:
                             if path_costs[child_node_key] > child_node.path_cost:
                                 path_costs[child_node_key] = child_node.path_cost
-                                value = path_costs[child_node_key] + self.weight * \
-                                    problem.heuristic(child_node.state)
 
                                 if child_node_key in closed_set:
+                                    open_list.add(child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
                                     closed_set.remove(child_node_key)
-
-                                open_list.add(child_node, value)
                         else:
                             path_costs[child_node_key] = child_node.path_cost
-                            value = path_costs[child_node_key] + self.weight * \
-                                problem.heuristic(child_node.state)
-                            open_list.add(child_node, value)
+                            open_list.add(child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
 
                     self.mem['time'] = tm.time() - self.mem['start_time']
                     if self.mem['interrupted']:
@@ -124,7 +104,6 @@ class AAstar(AsyncAlgo):
             self.mem['time'] = tm.time() - self.mem['start_time']
             if self.mem['interrupted']:
                 break
-        # print("Finished")
 
     def update_hyperparams(self, hyperparams):
         pass
