@@ -2,6 +2,7 @@ import random
 
 import gym
 import matplotlib.pyplot as plt
+from gym.wrappers import TimeLimit
 
 import MFMR.monitors  # noqa
 from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
@@ -10,7 +11,8 @@ from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 def main():
     random.seed(0)
     metareasoning_env = gym.make(
-        'A1.3Astar-4puzzle-medium-B0.4-v0')  # type: AsyncAlgoMonitor
+        'A1.5Astar-4puzzle-medium-B0.3-v0')  # type: AsyncAlgoMonitor
+    metareasoning_env = TimeLimit(metareasoning_env, max_episode_steps=150)
 
     # metareasoning_env.seed(0)
     metareasoning_env.reset()

@@ -3,20 +3,25 @@ import random
 import gym
 import numpy as np
 import pytest
+from gym.wrappers import TimeLimit
 
 import MFMR.monitors  # noqa
 from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 
-env_name = 'A1.3Astar-4puzzle-medium-B0.4-v0'
+env_name = 'A1.5Astar-4puzzle-medium-B0.3-v0'
 
 
 def test_make_env():
-    gym.make(env_name)
+    env = gym.make(env_name)
+    env = TimeLimit(env, max_episode_steps=150)
+    return env
 
 
 @pytest.fixture
 def env():
-    return gym.make(env_name)  # type: AsyncAlgoMonitor
+    env = gym.make(env_name)
+    env = TimeLimit(env, max_episode_steps=150)  # type: AsyncAlgoMonitor
+    return env
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2, 3])

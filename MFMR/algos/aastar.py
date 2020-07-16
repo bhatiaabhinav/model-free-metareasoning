@@ -60,23 +60,36 @@ class AAstar(AsyncAlgo):
         start_node_key = get_key(start_node.state)
 
         open_list = OpenList()
-        open_list.add(start_node, self.weight * problem.heuristic(start_node.state))
+        open_list.add(start_node, self.weight *
+                      problem.heuristic(start_node.state))
 
         closed_set = set()
         best_node_value = float('inf')
 
         path_costs = {start_node_key: start_node.path_cost}
+        open_list_size = 1
+        closed_set_size = 0
+        self.mem['open_list_size'] = open_list_size
+        self.mem['closed_set_size'] = closed_set_size
 
         while open_list:
             current_node = open_list.remove()
+            open_list_size = open_list_size - 1
             current_node_key = get_key(current_node.state)
-            current_node_value = current_node.path_cost + problem.heuristic(current_node.state)
+            current_node_value = current_node.path_cost + \
+                problem.heuristic(current_node.state)
+            self.mem['open_list_size'] = open_list_size
+            self.mem['closed_set_size'] = closed_set_size
 
             if current_node_value < best_node_value:
                 closed_set.add(current_node_key)
+                closed_set_size = closed_set_size + 1
+                self.mem['open_list_size'] = open_list_size
+                self.mem['closed_set_size'] = closed_set_size
 
                 for child_node in problem.get_children_nodes(current_node):
-                    child_node_value = child_node.path_cost + problem.heuristic(child_node.state)
+                    child_node_value = child_node.path_cost + \
+                        problem.heuristic(child_node.state)
                     child_node_key = get_key(child_node.state)
 
                     if child_node_value < best_node_value:
@@ -91,11 +104,19 @@ class AAstar(AsyncAlgo):
                                 path_costs[child_node_key] = child_node.path_cost
 
                                 if child_node_key in closed_set:
-                                    open_list.add(child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
+                                    open_list.add(
+                                        child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
+                                    open_list_size += 1
                                     closed_set.remove(child_node_key)
+                                    closed_set_size -= 1
+                                self.mem['open_list_size'] = open_list_size
+                                self.mem['closed_set_size'] = closed_set_size
                         else:
                             path_costs[child_node_key] = child_node.path_cost
-                            open_list.add(child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
+                            open_list.add(
+                                child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
+                            open_list_size += 1
+                            self.mem['open_list_size'] = open_list_size
 
                     self.mem['time'] = tm.time() - self.mem['start_time']
                     if self.mem['interrupted']:
