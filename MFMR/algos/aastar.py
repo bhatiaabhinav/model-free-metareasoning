@@ -40,6 +40,9 @@ class AAstar(AsyncAlgo):
             *search_problem_args, **search_problem_kwargs)  # type: SearchProblem
         self.weight = weight
         self.discretization = discretization
+        if self.discretization:
+            raise ValueError(
+                'Discretization is not yet supported for this environment')
 
     # ------------------------------------------ helper methods -----------------------------------------------
 
@@ -145,17 +148,18 @@ class AAstar(AsyncAlgo):
         self.mem['time'] = tm.time() - self.mem['start_time']
         cost, time = self.mem['cost'], self.mem['time']
         quality = self.start_heuristic / cost
-        return self.get_discretized_state((quality, time))
+        return quality, time
 
-    def get_discretized_state(self, raw_state):
-        if self.discretization:
-            raw_quality, raw_time = raw_state
-            quality_bounds = np.linspace(0, 1, self.QUALITY_CLASS_COUNT)
-            time_bounds = np.linspace(
-                0, 100, self.TIME_CLASS_COUNT)
-            return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
+    # not yet supported
+    # def get_discretized_state(self, raw_state):
+    #     if self.discretiz7ation:
+    #         raw_quality, raw_time = raw_state
+    #         quality_bounds = np.linspace(0, 1, self.QUALITY_CLASS_COUNT)
+    #         time_bounds = np.linspace(
+    #             0, 100, self.TIME_CLASS_COUNT)
+    #         return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
 
-        return raw_state
+    #     return raw_state
 
     def get_solution_quality(self):
         cost = self.mem['cost']
