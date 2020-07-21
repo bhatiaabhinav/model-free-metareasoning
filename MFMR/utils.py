@@ -54,7 +54,8 @@ def update_mean_std(mean, std, n, x, remove=False):
     new_mean_x_squared, new_n = update_mean(
         mean_x_squared, n, x**2, remove=remove)
     new_variance = new_mean_x_squared - new_mean**2
-    assert new_variance > -0.1, "precision error?"
+    if new_variance < -0.1:
+        print("precision error? variance", new_variance)
     new_variance = max(0, new_variance)  # a defence againt neg variance
     new_std = math.sqrt(new_variance)
     return new_mean, new_std, new_n
@@ -93,6 +94,9 @@ def update_mean_std_corr(mean_x, mean_y, std_x, std_y, corr, n, x, y, remove=Fal
     new_mean_xy, new_n = update_mean(mean_xy, n, x * y, remove=remove)
     new_cov = new_mean_xy - new_mean_x * new_mean_y
     new_corr = new_cov / (new_std_x * new_std_y)
+    if new_corr < -1.01 or new_corr > 1.01:
+        print('Precision error? Corr', new_corr)
+    new_corr = min(max(-1, new_corr), 1)
     return new_mean_x, new_mean_y, new_std_x, new_std_y, new_corr, new_n
 
 

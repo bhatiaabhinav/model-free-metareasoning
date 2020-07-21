@@ -11,6 +11,7 @@ import numpy as np
 from MFMR import utils
 from MFMR.algos.search_problem import Node, OpenList, SearchProblem, get_key
 from MFMR.async_algo import AsyncAlgo
+from MFMR.utils import update_mean_std_corr
 
 FILE_TEMPLATE = """NAME : %s
 COMMENT : %s
@@ -55,6 +56,24 @@ class AAstar(AsyncAlgo):
         self.mem['start_time'] = tm.time()
         self.mem['time'] = 0
         self.mem['interrupted'] = False
+        '''
+        The following stats represent (E[G], E[H], Std(G), Std(H), Corr(G, H), n).
+
+        The reason for chosing to maintain these specific stats is that other important stats
+        can be recovered in these terms:
+
+        E[F] = E[G + H] = E[G] + E[H]
+        E[Weighted F] = E[G + wH] = E[G] + w * E[H]
+        Var(F) = Var(G) + Var(H) + 2 * Cov(G, H) = Var(G) + Var(H) + 2 * Corr(G, H) * Std(G) * Std(H)
+        Var(Weighted F) = Var(G) + w^2 * Var(H) + 2w * Cov(G, H)
+
+        The reason we cannot directly maintain E[G + wH] & Std(G + wH) is because
+        as w changes, these stats will get invalidated.
+        '''
+        self.mem['stats_open'] = (0, 0, 0, 0, 0, 0)
+        self.mem['stats_closed'] = (0, 0, 0, 0, 0, 0)
+        self.mem['cur_node_g'] = 0
+        self.mem['cur_node_h'] = 0
 
     def run(self):
         problem = self.problem
@@ -63,71 +82,115 @@ class AAstar(AsyncAlgo):
         start_node_key = get_key(start_node.state)
 
         open_list = OpenList()
-        open_list.add(start_node, self.weight *
-                      problem.heuristic(start_node.state))
+        start_node_g, start_node_h = 0, problem.heuristic(start_node.state)
+        open_list.add(start_node, start_node_g + self.weight * start_node_h)
+        self.mem['stats_open'] = update_mean_std_corr(
+            *self.mem['stats_open'], start_node_g, start_node_h)
 
         closed_set = set()
-        best_node_value = float('inf')
+        best_node_f = float('inf')
 
         path_costs = {start_node_key: start_node.path_cost}
-        open_list_size = 1
-        closed_set_size = 0
-        self.mem['open_list_size'] = open_list_size
-        self.mem['closed_set_size'] = closed_set_size
 
         while open_list:
             current_node = open_list.remove()
-            open_list_size = open_list_size - 1
             current_node_key = get_key(current_node.state)
-            current_node_value = current_node.path_cost + \
-                problem.heuristic(current_node.state)
-            self.mem['open_list_size'] = open_list_size
-            self.mem['closed_set_size'] = closed_set_size
+            current_node_g, current_node_h = current_node.path_cost, problem.heuristic(
+                current_node.state)
+            current_node_f = current_node_g + current_node_h
+            self.mem['stats_open'] = update_mean_std_corr(
+                *self.mem['stats_open'], current_node_g, current_node_h, remove=True)
+            self.mem['curr_node_g'], self.mem['curr_node_h'] = current_node_g, current_node_h
 
-            if current_node_value < best_node_value:
+            if current_node_f < best_node_f:
+                '''This node is worth exploring. Its subtree might contain a better solution'''
                 closed_set.add(current_node_key)
-                closed_set_size = closed_set_size + 1
-                self.mem['open_list_size'] = open_list_size
-                self.mem['closed_set_size'] = closed_set_size
+                self.mem['stats_closed'] = update_mean_std_corr(
+                    *self.mem['stats_closed'], current_node_g, current_node_h)
 
                 for child_node in problem.get_children_nodes(current_node):
-                    child_node_value = child_node.path_cost + \
-                        problem.heuristic(child_node.state)
+                    child_node_g, child_node_h = child_node.path_cost, problem.heuristic(
+                        child_node.state)
+                    child_node_f = child_node_g + child_node_h
                     child_node_key = get_key(child_node.state)
 
-                    if child_node_value < best_node_value:
+                    if child_node_f < best_node_f:
+                        '''This child is worthy of creation. Its subtree might create a better solution'''
                         if problem.goal_test(child_node.state):
+                            '''We found a solution. Now we won't add this node to any list.
+                            We want to prune this subtree since we are not going to get any better solutions down this lane'''
                             path_costs[child_node_key] = child_node.path_cost
-                            best_node_value = child_node_value
-
+                            best_node_f = child_node_f
                             self.mem['solution'] = child_node.get_solution()
-                            self.mem['cost'] = len(self.mem['solution'])
+                            self.mem['cost'] = child_node.path_cost
                         elif child_node_key in closed_set or child_node in open_list:
+                            '''okay.. we have seen this state before. This child is so unoriginal: a duplicate.'''
                             if path_costs[child_node_key] > child_node.path_cost:
-                                path_costs[child_node_key] = child_node.path_cost
+                                '''We found a better path to an old state. The operation below
+                                removes old node with g=`path_costs[child_node_key]` from either closed set or open list.
+                                Then adds a new node with same state as the removed node, but with g=`child_node_g`, to the open list.
+                                The statistics need to be updated accordingly.'''
+                                old_node_g = path_costs[child_node_key]
+                                old_node_h = child_node_h
 
+                                '''the replacement operation:'''
+                                path_costs[child_node_key] = child_node.path_cost
                                 if child_node_key in closed_set:
                                     open_list.add(
-                                        child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
-                                    open_list_size += 1
+                                        child_node, child_node_g + self.weight * child_node_h)
                                     closed_set.remove(child_node_key)
-                                    closed_set_size -= 1
-                                self.mem['open_list_size'] = open_list_size
-                                self.mem['closed_set_size'] = closed_set_size
-                        else:
-                            path_costs[child_node_key] = child_node.path_cost
-                            open_list.add(
-                                child_node, path_costs[child_node_key] + self.weight * problem.heuristic(child_node.state))
-                            open_list_size += 1
-                            self.mem['open_list_size'] = open_list_size
+                                    '''stats update due to remove old node from closed set:'''
+                                    self.mem['stats_closed'] = update_mean_std_corr(
+                                        *self.mem['stats_closed'], old_node_g, old_node_h, remove=True)
+                                else:
+                                    '''stats update due to remove old node from open list:'''
+                                    self.mem['stats_open'] = update_mean_std_corr(
+                                        *self.mem['stats_open'], old_node_g, old_node_h, remove=True)
 
+                                '''stats update due to add new node to open list:'''
+                                self.mem['stats_open'] = update_mean_std_corr(
+                                    *self.mem['stats_open'], child_node_g, child_node_h)
+                            else:
+                                '''ignore this duplicate child node because it is worse than the old node'''
+                                pass
+                        else:
+                            '''this is a new non-goal child node, and its subtree is worth exploring
+                            (because its f value is less than any solution known so far). So let's add it to open list'''
+                            path_costs[child_node_key] = child_node_g
+                            open_list.add(child_node, child_node_g +
+                                          self.weight * child_node_h)
+                            self.mem['stats_open'] = update_mean_std_corr(
+                                *self.mem['stats_open'], child_node_g, child_node_h)
+                    else:
+                        '''Abort this child because it does not have potential to improve the solution.
+                        Ignore it - let's prune its subtree'''
+                        pass
+
+                    '''Done another iteration of the for loop : a child has been potentially added.
+                    Let's check for interruption'''
                     self.mem['time'] = tm.time() - self.mem['start_time']
                     if self.mem['interrupted']:
                         break
+                '''
+                For loop ends here. We have expanded the current node and added (some of) its children to open list.
+                '''
+            else:
+                '''This is a useless node in the openlist - no potential to improve the solution.
+                Ignore it - let's prune its subtree'''
+                pass
 
+            '''Done another iteration of the while loop : processed a node from the open list.
+            Let's check for interruption'''
             self.mem['time'] = tm.time() - self.mem['start_time']
             if self.mem['interrupted']:
                 break
+
+        '''
+        At this point, EITHER the open list is empty and we have found an optimal solution
+        OR the algorithm was interrupted and we have a suboptimal solution.
+        '''
+
+        # print('Done')
 
     def update_hyperparams(self, hyperparams):
         pass
@@ -139,12 +202,11 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
-        if self.discretization:
-            return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.int)
-        else:
-            return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
+        # TODO: Incorporate statistics of closed set & open list.
+        return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
 
     def get_obs(self):
+        # TODO: Incorporate statistics of closed set & open list.
         self.mem['time'] = tm.time() - self.mem['start_time']
         cost, time = self.mem['cost'], self.mem['time']
         quality = self.start_heuristic / cost

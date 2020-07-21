@@ -36,12 +36,14 @@ def test_basic(env, seed):
     obs, r, d, i = env.step(env.CONTINUE_ACTION)
     print(obs, r, d, i)
     assert not i['interrupted']
-    was_already_done = d
-    obs, r, d, i = env.step(env.STOP_ACTION)
-    print(obs, r, d, i)
-    assert d
-    if not was_already_done:
-        assert i['interrupted']
+    if d:
+        assert i['graceful_exit']
+    else:
+        obs, r, d, i = env.step(env.STOP_ACTION)
+        print(obs, r, d, i)
+        assert d
+        if not i['graceful_exit']:
+            assert i['interrupted']
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2, 3])
@@ -56,7 +58,9 @@ def test_final_solution(env, seed):
         assert not i['interrupted']
         assert i['solution_quality'] >= prev_sol_qual
         prev_sol_qual = i['solution_quality']
+    assert d
     assert not i['interrupted']
+    assert i['graceful_exit']
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2, 3])
@@ -65,8 +69,10 @@ def test_interrupted(env, seed):
     env.seed(seed)
     obs = env.reset()
     obs, r, d, i = env.step(env.STOP_ACTION)
+    print(obs, r, d, i)
     assert d
-    assert i['interrupted']
+    if not i['graceful_exit']:
+        assert i['interrupted']
 
 
 # in command line, run `pytest Tests/` after activating virtualenv

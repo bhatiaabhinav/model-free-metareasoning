@@ -35,7 +35,7 @@ def main():
         utility = metareasoning_env.get_cur_utility()
         utilities.append(utility)
 
-        print(steps, time, quality, utility)
+        print('steps', steps, 't', time, 'q', quality, 'u', utility)
 
         if is_episode_done:
             break
