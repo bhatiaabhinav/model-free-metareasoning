@@ -2,19 +2,19 @@ import json
 import math
 
 
-def update_mean(mean, n, x, add_x=True):
+def update_mean(mean, n, x, remove=False):
     """Calculates the updated mean of a collection on adding or removing an element. Returns 0 mean if updated number of elements become 0.
 
     Args:
         mean (float): current mean of the collection
         n (int): current number of elements in the collection
         x (float): the element to be either added or removed
-        add_x (bool, optional): Whether to add (True) or remove the element. Defaults to True.
+        remove (bool, optional): Whether to add or remove the element. Defaults to False.
 
     Returns:
-        float, int: updated mean, updated number of elements
+        float, int: updated mean, number of elements
     """
-    mask = 2 * int(add_x) - 1
+    mask = 2 * int(not remove) - 1
     new_n = n + mask
     if new_n == 0:
         return 0.0, 0
@@ -26,49 +26,74 @@ def update_mean(mean, n, x, add_x=True):
     return new_mean, new_n
 
 
-def update_mean_std(mean, std, n, x, add_x=True):
-    """Calculates the updated mean and std of a collection on adding or removing an element. Return 0 mean and std if updated number of elements become 0.
+def update_mean_std(mean, std, n, x, remove=False):
+    """Calculates the updated mean and std of a collection on adding or removing an element. Returns 0 mean and std if updated number of elements become 0.
 
     Args:
         mean (float): current mean
         std (float): current std
         n (int): current number of elements in the collection
         x (float): the element to be either added or removed
-        add_x (bool, optional): Whether to add (True) or remove the element. Defaults to True.
+        remove (bool, optional): Whether to add or remove the element. Defaults to False.
 
     Returns:
-        float, int: updated std, updated number of elements
-    """
-    '''We will use the property that
-        variance = E[(X-u)^2]
-        = E[X^2 + u^2 - 2uX]
-        = E[X^2] + u^2 - 2uE[X]
-        = E[X^2] + u^2 -2u^2
-        = E[X^2] - u^2
+        float, float, int: updated mean, std, number of elements
+
+    This method uses the property that
+        variance
+        = E[(X-u)^2]
         = E[X^2] - (E[X])^2
-    '''
-    mask = 2 * add_x - 1
-    new_n = n + mask
+    """
+
+    mask = 2 * int(not remove) - 1
+    new_mean, new_n = update_mean(mean, n, x, remove=remove)
     if new_n == 0:
-        return 0.0, 0.0, 0
-    if new_n < 0:
-        raise ValueError('Cannot remove an element from an empty collection')
+        return 0, 0, 0
     variance = std ** 2
     mean_x_squared = variance + mean ** 2  # by E[X^2] = variance + (E[X])^2
-    '''now calculate new mean of X'''
-    sum_x = mean * n
-    new_sum_x = sum_x + mask * x
-    new_mean = new_sum_x / new_n
-    '''now calulate new mean of X^2'''
-    sum_x_squared = mean_x_squared * n
-    new_sum_x_squared = sum_x_squared + mask * x**2
-    new_mean_x_squared = new_sum_x_squared / new_n
-    '''now new std'''
+    new_mean_x_squared, new_n = update_mean(
+        mean_x_squared, n, x**2, remove=remove)
     new_variance = new_mean_x_squared - new_mean**2
-    assert new_variance > -0.1, "too much precision error?"
+    assert new_variance > -0.1, "precision error?"
     new_variance = max(0, new_variance)  # a defence againt neg variance
     new_std = math.sqrt(new_variance)
     return new_mean, new_std, new_n
+
+
+def update_mean_std_corr(mean_x, mean_y, std_x, std_y, corr, n, x, y, remove=False):
+    """Calculates the updated means, standard dev, and Pearson's correlation coefficient of collections X and Y on adding or removing a pair of elements x and y. Returns 0 means, stds and corr if updated number of elements become 0.
+
+    Args:
+        mean_x (float): current E[X}
+        mean_y (float): current E[Y]
+        std_x (float): current Std(X)
+        std_y (float): current Std(Y)
+        corr (float): current Corr(X, Y)
+        n (int): = number of elements in collection X and Y
+        x (float): element x to be either added to or removed from collection X
+        y (float): element y to be either added to or removed from collection Y
+        remove (bool, optional): Whether to add or remove x and y. Defaults to False.
+
+    Returns:
+        float, float, float, float, float, int: updated E[X], E[Y], Std(X), Std(Y), Corr(X, Y), n
+
+    This method uses the property that:
+    cov(X, Y)
+    = corr(X, Y) * Std(X) * Std(Y)
+    = E[XY] - E[X]E[Y]
+    """
+    new_mean_x, new_std_x, new_n = update_mean_std(
+        mean_x, std_x, n, x, remove=remove)
+    if new_n == 0:
+        return 0, 0, 0, 0, 0, 0
+    new_mean_y, new_std_y, new_n = update_mean_std(
+        mean_y, std_y, n, y, remove=remove)
+    cov = corr * std_x * std_y
+    mean_xy = cov + mean_x * mean_y
+    new_mean_xy, new_n = update_mean(mean_xy, n, x * y, remove=remove)
+    new_cov = new_mean_xy - new_mean_x * new_mean_y
+    new_corr = new_cov / (new_std_x * new_std_y)
+    return new_mean_x, new_mean_y, new_std_x, new_std_y, new_corr, new_n
 
 
 def save(filename, data):
