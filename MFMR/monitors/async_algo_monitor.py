@@ -61,7 +61,7 @@ class AsyncAlgoMonitor(gym.Env):
             cont_decision = action
 
         done = False
-        info = {'interrupted': False}
+        info = {'interrupted': False, 'graceful_exit': True}
         self.prev_utility = self.cur_utility
 
         if not self.run_process.is_alive():
@@ -120,4 +120,7 @@ class AsyncAlgoMonitor(gym.Env):
 
     def close(self):
         '''GYM API. Close and cleanup any rendering related objects'''
+        if self.run_process is not None:
+            self.run_process.terminate()
+            self.run_process = None
         return self.algo.close()

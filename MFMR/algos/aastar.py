@@ -9,7 +9,8 @@ import gym
 import numpy as np
 
 from MFMR import utils
-from MFMR.algos.search_problem import Node, OpenList, SearchProblem, get_key
+from MFMR.algos.search_problem import (Node, PriorityDict, SearchProblem,
+                                       get_key)
 from MFMR.async_algo import AsyncAlgo
 from MFMR.utils import update_mean_std_corr
 
@@ -39,7 +40,7 @@ class AAstar(AsyncAlgo):
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
             *search_problem_args, **search_problem_kwargs)  # type: SearchProblem
-        self.weight = weight
+        self.w = weight
         self.discretization = discretization
         if self.discretization:
             raise ValueError(
@@ -72,8 +73,6 @@ class AAstar(AsyncAlgo):
         '''
         self.mem['stats_open'] = (0, 0, 0, 0, 0, 0)
         self.mem['stats_closed'] = (0, 0, 0, 0, 0, 0)
-        self.mem['cur_node_g'] = 0
-        self.mem['cur_node_h'] = 0
 
     def run(self):
         problem = self.problem
@@ -81,32 +80,39 @@ class AAstar(AsyncAlgo):
         start_node = Node(problem.start_state)
         start_node_key = get_key(start_node.state)
 
-        open_list = OpenList()
-        start_node_g, start_node_h = 0, problem.heuristic(start_node.state)
-        open_list.add(start_node, start_node_g + self.weight * start_node_h)
-        self.mem['stats_open'] = update_mean_std_corr(
-            *self.mem['stats_open'], start_node_g, start_node_h)
-
+        '''The open list prioritizes nodes acc to f' = g + wh '''
+        open_list = PriorityDict(tie_breaker='LIFO')
         closed_set = set()
-        best_node_f = float('inf')
+
+        '''The upperbound is the f = g + h of the latest solution found'''
+        best_solution_f = float('inf')
+        '''The lowerbound is the lowest f = g + h among the nodes in the open list'''
+        # lowest_open_f = 0
+
+        '''add root node to open list'''
+        start_node_g, start_node_h = 0.0, problem.heuristic(start_node.state)
+        open_list.add(start_node_key, start_node_g +
+                      self.w * start_node_h, start_node)
+        # lowest_open_f = start_node_g + start_node_h
+        # self.mem['stats_open'] = update_mean_std_corr(
+        #     *self.mem['stats_open'], start_node_g, start_node_h)
 
         path_costs = {start_node_key: start_node.path_cost}
 
         while open_list:
-            current_node = open_list.remove()
+            _, current_node = open_list.pop()
             current_node_key = get_key(current_node.state)
             current_node_g, current_node_h = current_node.path_cost, problem.heuristic(
                 current_node.state)
             current_node_f = current_node_g + current_node_h
-            self.mem['stats_open'] = update_mean_std_corr(
-                *self.mem['stats_open'], current_node_g, current_node_h, remove=True)
-            self.mem['curr_node_g'], self.mem['curr_node_h'] = current_node_g, current_node_h
+            # self.mem['stats_open'] = update_mean_std_corr(
+            #     *self.mem['stats_open'], current_node_g, current_node_h, remove=True)
 
-            if current_node_f < best_node_f:
+            if current_node_f < best_solution_f:
                 '''This node is worth exploring. Its subtree might contain a better solution'''
                 closed_set.add(current_node_key)
-                self.mem['stats_closed'] = update_mean_std_corr(
-                    *self.mem['stats_closed'], current_node_g, current_node_h)
+                # self.mem['stats_closed'] = update_mean_std_corr(
+                #     *self.mem['stats_closed'], current_node_g, current_node_h)
 
                 for child_node in problem.get_children_nodes(current_node):
                     child_node_g, child_node_h = child_node.path_cost, problem.heuristic(
@@ -114,19 +120,19 @@ class AAstar(AsyncAlgo):
                     child_node_f = child_node_g + child_node_h
                     child_node_key = get_key(child_node.state)
 
-                    if child_node_f < best_node_f:
+                    if child_node_f < best_solution_f:
                         '''This child is worthy of creation. Its subtree might create a better solution'''
                         if problem.goal_test(child_node.state):
                             '''We found a solution. Now we won't add this node to any list.
                             We want to prune this subtree since we are not going to get any better solutions down this lane'''
                             path_costs[child_node_key] = child_node.path_cost
-                            best_node_f = child_node_f
+                            best_solution_f = child_node_f
                             self.mem['solution'] = child_node.get_solution()
                             self.mem['cost'] = child_node.path_cost
-                        elif child_node_key in closed_set or child_node in open_list:
+                        elif child_node_key in closed_set or child_node_key in open_list:
                             '''okay.. we have seen this state before. This child is so unoriginal: a duplicate.'''
                             if path_costs[child_node_key] > child_node.path_cost:
-                                '''We found a better path to an old state. The operation below
+                                '''This duplicate child is better than the old node with this state. The operation below
                                 removes old node with g=`path_costs[child_node_key]` from either closed set or open list.
                                 Then adds a new node with same state as the removed node, but with g=`child_node_g`, to the open list.
                                 The statistics need to be updated accordingly.'''
@@ -137,19 +143,20 @@ class AAstar(AsyncAlgo):
                                 path_costs[child_node_key] = child_node.path_cost
                                 if child_node_key in closed_set:
                                     open_list.add(
-                                        child_node, child_node_g + self.weight * child_node_h)
+                                        child_node_key, child_node_g + self.w * child_node_h, child_node)
                                     closed_set.remove(child_node_key)
                                     '''stats update due to remove old node from closed set:'''
-                                    self.mem['stats_closed'] = update_mean_std_corr(
-                                        *self.mem['stats_closed'], old_node_g, old_node_h, remove=True)
+                                    # self.mem['stats_closed'] = update_mean_std_corr(
+                                    #     *self.mem['stats_closed'], old_node_g, old_node_h, remove=True)
                                 else:
                                     '''stats update due to remove old node from open list:'''
-                                    self.mem['stats_open'] = update_mean_std_corr(
-                                        *self.mem['stats_open'], old_node_g, old_node_h, remove=True)
+                                    # self.mem['stats_open'] = update_mean_std_corr(
+                                    #     *self.mem['stats_open'], old_node_g, old_node_h, remove=True)
 
                                 '''stats update due to add new node to open list:'''
-                                self.mem['stats_open'] = update_mean_std_corr(
-                                    *self.mem['stats_open'], child_node_g, child_node_h)
+                                # lowest_open_f = min(lowest_open_f, )
+                                # self.mem['stats_open'] = update_mean_std_corr(
+                                #     *self.mem['stats_open'], child_node_g, child_node_h)
                             else:
                                 '''ignore this duplicate child node because it is worse than the old node'''
                                 pass
@@ -157,10 +164,10 @@ class AAstar(AsyncAlgo):
                             '''this is a new non-goal child node, and its subtree is worth exploring
                             (because its f value is less than any solution known so far). So let's add it to open list'''
                             path_costs[child_node_key] = child_node_g
-                            open_list.add(child_node, child_node_g +
-                                          self.weight * child_node_h)
-                            self.mem['stats_open'] = update_mean_std_corr(
-                                *self.mem['stats_open'], child_node_g, child_node_h)
+                            open_list.add(
+                                child_node_key, child_node_g + self.w * child_node_h, child_node)
+                            # self.mem['stats_open'] = update_mean_std_corr(
+                            #     *self.mem['stats_open'], child_node_g, child_node_h)
                     else:
                         '''Abort this child because it does not have potential to improve the solution.
                         Ignore it - let's prune its subtree'''

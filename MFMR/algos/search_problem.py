@@ -1,3 +1,5 @@
+import queue
+
 import numpy as np
 
 
@@ -90,3 +92,84 @@ class OpenList(object):
                 self.items.pop(i)
 
         del self.cache[new_node_key]
+
+
+class PriorityDict:
+    '''A hybrid data structure which efficiently combines functionalities of a priority queue and a dictionary'''
+
+    def __init__(self, tie_breaker='FIFO'):
+        # used to mark a key-value pair as deleted in O(1) time.
+        self.DELETED_VALUE = object()
+        self._ke_map = {}  # maps legit keys to entry
+        self._ek_map = {}  # maps entry id to key
+        # the priority queue to hold entries in (priority, id, value) format
+        self._pq = queue.PriorityQueue()
+        '''assign a unique id to every value to break ties'''
+        self._counter = 0
+        self._increment = 1 if tie_breaker == 'FIFO' else -1
+
+    def add(self, key, priority, value):
+        '''Adds a new key-value pair with given priority'''
+        assert key not in self._ke_map, "Key already present"
+        entry = [priority, self._counter, value]
+        self._counter += self._increment
+        self._pq.put(entry)
+        self._ke_map[key] = entry
+        self._ek_map[entry[1]] = key
+
+    def pop(self):
+        '''retrieve lowest priority entry and remove it. Returns (priority, value) tuple'''
+        while not self._pq.empty():
+            entry = self._pq.get()
+            if entry[-1] == self.DELETED_VALUE:
+                # automatically popped. No housekeeping needed in other data structs.
+                assert entry[1] not in self._ek_map, "A deleted entry found in hashmap"
+                continue
+            else:
+                key = self._ek_map[entry[1]]
+                del self._ke_map[key]
+                del self._ek_map[entry[1]]
+                return entry[0], entry[-1]
+        raise KeyError('The queue is empty')
+
+    def get(self, key, default=None):
+        '''retrieve an entry (priority, value) based on key. Returns `default` if key not found'''
+        if key in self._ke_map:
+            entry = self._ke_map[key]
+            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+            return entry[0], entry[-1]
+        else:
+            return default
+
+    def __getitem__(self, key):
+        '''retrieve an entry (priority, value) based on key. Raises KeyError if key not present'''
+        entry = self._ke_map[key]
+        assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+        return entry[0], entry[-1]
+
+    def delete(self, key):
+        '''deletes an entry based on key. Does nothing if key not found.'''
+        entry = self._ke_map.get(key)
+        if entry is not None:
+            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+            del self._ke_map[key]
+            del self._ek_map[entry[1]]
+            entry[-1] = self.DELETED_VALUE
+
+    def __delitem__(self, key):
+        '''deletes an entry based on key. Raises Keyerror if key not present'''
+        entry = self._ke_map[key]
+        if entry is not None:
+            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+            del self._ke_map[key]
+            del self._ek_map[entry[1]]
+            entry[-1] = self.DELETED_VALUE
+
+    def __contains__(self, key):
+        '''checks if there is an entry with given key'''
+        return key in self._ke_map
+
+    def __len__(self):
+        assert len(self._ke_map) == len(
+            self._ek_map), "Something is wrong. Length of ke and ek maps are different"
+        return len(self._ke_map)
