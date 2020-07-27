@@ -24,7 +24,7 @@ def env():
     return env
 
 
-@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+@pytest.mark.parametrize("seed", range(25))
 def test_basic(env, seed):
     random.seed(seed)
     env.seed(seed)
@@ -46,7 +46,7 @@ def test_basic(env, seed):
             assert i['interrupted']
 
 
-@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+@pytest.mark.parametrize("seed", range(25))
 def test_final_solution(env, seed):
     random.seed(seed)
     env.seed(seed)
@@ -63,7 +63,7 @@ def test_final_solution(env, seed):
     assert i['graceful_exit']
 
 
-@pytest.mark.parametrize("seed", [0, 1, 2, 3])
+@pytest.mark.parametrize("seed", range(25))
 def test_interrupted(env, seed):
     random.seed(seed)
     env.seed(seed)

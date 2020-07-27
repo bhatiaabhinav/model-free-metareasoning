@@ -142,16 +142,18 @@ class AAstar(AsyncAlgo):
                                 '''the replacement operation:'''
                                 path_costs[child_node_key] = child_node.path_cost
                                 if child_node_key in closed_set:
-                                    open_list.add(
-                                        child_node_key, child_node_g + self.w * child_node_h, child_node)
                                     closed_set.remove(child_node_key)
                                     '''stats update due to remove old node from closed set:'''
                                     # self.mem['stats_closed'] = update_mean_std_corr(
                                     #     *self.mem['stats_closed'], old_node_g, old_node_h, remove=True)
                                 else:
+                                    del open_list[child_node_key]
                                     '''stats update due to remove old node from open list:'''
                                     # self.mem['stats_open'] = update_mean_std_corr(
                                     #     *self.mem['stats_open'], old_node_g, old_node_h, remove=True)
+
+                                open_list.add(
+                                    child_node_key, child_node_g + self.w * child_node_h, child_node)
 
                                 '''stats update due to add new node to open list:'''
                                 # lowest_open_f = min(lowest_open_f, )

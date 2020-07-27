@@ -9,7 +9,7 @@ def test_update_mean_std_on_add(seed):
     random = np.random.RandomState(seed)
     n = random.randint(2, 11)
     numbers = list(10000000 * (2 * random.random(n) - 1))
-    x = random.randn()
+    x = 10000000 * random.randn()
     numbers_new = numbers + [x]
     mean = np.mean(numbers)
     std = np.std(numbers)
@@ -54,8 +54,8 @@ def test_update_mean_std_corr_on_add(seed):
     n = random.randint(2, 11)
     numbers_x = list(10000000 * (2 * random.random(n) - 1))
     numbers_y = list(10000000 * (2 * random.random(n) - 1))
-    x = random.randn()
-    y = random.randn()
+    x = 10000000 * random.randn()
+    y = 10000000 * random.randn()
     numbers_new_x = numbers_x + [x]
     numbers_new_y = numbers_y + [y]
     mean_x = np.mean(numbers_x)
