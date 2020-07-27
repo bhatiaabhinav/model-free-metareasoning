@@ -31,6 +31,65 @@ DELIMITER = "\n"
 ITERATIONS = 100
 
 
+class MultiWeightOpenLists:
+    def __init__(self, w_init, w_min, w_max, w_interval=0.1):
+        self.w = np.round(w_init, 1)
+        self.w_min = np.round(w_min, 1)
+        self.w_max = np.round(w_max, 1)
+        self.w_interval = np.round(w_interval, 1)
+        self.ws = np.round(np.arange(w_min, w_max + w_interval, w_interval), 1)
+        if self.w not in self.ws:
+            raise ValueError(
+                f'w_init={self.w} is not valid. It should be in the space created by other arguments')
+        self.open_lists = {}
+        for w in self.ws:
+            self.open_lists[w] = PriorityDict(tie_breaker='LIFO')
+
+    def pop(self):
+        '''Retrives and delete the node with the least f' value from the open list with current w.
+        Deletes the node from all the other open lists'''
+        key, node, f = self.open_lists[self.w].pop()
+        for w in self.ws:
+            if not w == self.w:
+                del self.open_lists[w][key]
+        return key, node
+
+    def delete(self, key):
+        '''deletes the node with with given key from all the open lists.
+        Does nothing if the key is not present
+        '''
+        for w in self.ws:
+            self.open_lists[w].delete(key)
+
+    def add(self, key, node, g, h):
+        '''Adds a key-node pair to each open list with f' priority calculated acc to respective weights'''
+        for w in self.ws:
+            f = g + w * h
+            self.open_lists[w].add(key, node, f)
+
+    def increment_w(self):
+        '''Attempts to increment the current weight by w_interval, as long as it does not violate w_max'''
+        attempted_w = np.round(self.w + self.w_interval, 1)
+        if attempted_w < self.w_max:
+            self.w = attempted_w
+
+    def decrement_w(self):
+        '''Attempts to decrement the current weight by w_interval, as long as it does not violate w_min'''
+        attempted_w = np.round(self.w - self.w_interval, 1)
+        if attempted_w > self.w_min:
+            self.w = attempted_w
+
+    def __contains__(self, key):
+        return key in self.open_lists[self.w]
+
+    def __delitem__(self, key):
+        for w in self.ws:
+            del self.open_lists[w][key]
+
+    def __len__(self):
+        return len(self.open_lists[self.w])
+
+
 class AAstar(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
@@ -58,7 +117,7 @@ class AAstar(AsyncAlgo):
         self.mem['time'] = 0
         self.mem['interrupted'] = False
         '''
-        The following stats represent (E[G], E[H], Std(G), Std(H), Corr(G, H), n).
+        The following stats represent(E[G], E[H], Std(G), Std(H), Corr(G, H), n).
 
         The reason for chosing to maintain these specific stats is that other important stats
         can be recovered in these terms:
@@ -66,7 +125,7 @@ class AAstar(AsyncAlgo):
         E[F] = E[G + H] = E[G] + E[H]
         E[Weighted F] = E[G + wH] = E[G] + w * E[H]
         Var(F) = Var(G) + Var(H) + 2 * Cov(G, H) = Var(G) + Var(H) + 2 * Corr(G, H) * Std(G) * Std(H)
-        Var(Weighted F) = Var(G) + w^2 * Var(H) + 2w * Cov(G, H)
+        Var(Weighted F) = Var(G) + w ^ 2 * Var(H) + 2w * Cov(G, H)
 
         The reason we cannot directly maintain E[G + wH] & Std(G + wH) is because
         as w changes, these stats will get invalidated.
@@ -81,7 +140,9 @@ class AAstar(AsyncAlgo):
         start_node_key = get_key(start_node.state)
 
         '''The open list prioritizes nodes acc to f' = g + wh '''
-        open_list = PriorityDict(tie_breaker='LIFO')
+        open_lists = MultiWeightOpenLists(
+            self.w, w_min=1, w_max=2, w_interval=0.1)
+
         closed_set = set()
 
         '''The upperbound is the f = g + h of the latest solution found'''
@@ -91,17 +152,15 @@ class AAstar(AsyncAlgo):
 
         '''add root node to open list'''
         start_node_g, start_node_h = 0.0, problem.heuristic(start_node.state)
-        open_list.add(start_node_key, start_node_g +
-                      self.w * start_node_h, start_node)
+        open_lists.add(start_node_key, start_node, start_node_g, start_node_h)
         # lowest_open_f = start_node_g + start_node_h
         # self.mem['stats_open'] = update_mean_std_corr(
         #     *self.mem['stats_open'], start_node_g, start_node_h)
 
         path_costs = {start_node_key: start_node.path_cost}
 
-        while open_list:
-            _, current_node = open_list.pop()
-            current_node_key = get_key(current_node.state)
+        while len(open_lists) > 0:
+            current_node_key, current_node = open_lists.pop()
             current_node_g, current_node_h = current_node.path_cost, problem.heuristic(
                 current_node.state)
             current_node_f = current_node_g + current_node_h
@@ -129,7 +188,7 @@ class AAstar(AsyncAlgo):
                             best_solution_f = child_node_f
                             self.mem['solution'] = child_node.get_solution()
                             self.mem['cost'] = child_node.path_cost
-                        elif child_node_key in closed_set or child_node_key in open_list:
+                        elif child_node_key in closed_set or child_node_key in open_lists:
                             '''okay.. we have seen this state before. This child is so unoriginal: a duplicate.'''
                             if path_costs[child_node_key] > child_node.path_cost:
                                 '''This duplicate child is better than the old node with this state. The operation below
@@ -147,14 +206,13 @@ class AAstar(AsyncAlgo):
                                     # self.mem['stats_closed'] = update_mean_std_corr(
                                     #     *self.mem['stats_closed'], old_node_g, old_node_h, remove=True)
                                 else:
-                                    del open_list[child_node_key]
+                                    del open_lists[child_node_key]
                                     '''stats update due to remove old node from open list:'''
                                     # self.mem['stats_open'] = update_mean_std_corr(
                                     #     *self.mem['stats_open'], old_node_g, old_node_h, remove=True)
 
-                                open_list.add(
-                                    child_node_key, child_node_g + self.w * child_node_h, child_node)
-
+                                open_lists.add(
+                                    child_node_key, child_node, child_node_g, child_node_h)
                                 '''stats update due to add new node to open list:'''
                                 # lowest_open_f = min(lowest_open_f, )
                                 # self.mem['stats_open'] = update_mean_std_corr(
@@ -163,11 +221,11 @@ class AAstar(AsyncAlgo):
                                 '''ignore this duplicate child node because it is worse than the old node'''
                                 pass
                         else:
-                            '''this is a new non-goal child node, and its subtree is worth exploring
+                            '''this is a new non-goal child node and it is not a duplicate, and its subtree is worth exploring
                             (because its f value is less than any solution known so far). So let's add it to open list'''
                             path_costs[child_node_key] = child_node_g
-                            open_list.add(
-                                child_node_key, child_node_g + self.w * child_node_h, child_node)
+                            open_lists.add(
+                                child_node_key, child_node, child_node_g, child_node_h)
                             # self.mem['stats_open'] = update_mean_std_corr(
                             #     *self.mem['stats_open'], child_node_g, child_node_h)
                     else:

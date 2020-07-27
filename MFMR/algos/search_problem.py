@@ -108,7 +108,7 @@ class PriorityDict:
         self._counter = 0
         self._increment = 1 if tie_breaker == 'FIFO' else -1
 
-    def add(self, key, priority, value):
+    def add(self, key, value, priority):
         '''Adds a new key-value pair with given priority'''
         assert key not in self._ke_map, "Key already present"
         entry = [priority, self._counter, value]
@@ -118,7 +118,7 @@ class PriorityDict:
         self._ek_map[entry[1]] = key
 
     def pop(self):
-        '''retrieve lowest priority entry and remove it. Returns (priority, value) tuple'''
+        '''retrieve lowest priority entry and remove it. Returns (key, value, priority) tuple'''
         while not self._pq.empty():
             entry = self._pq.get()
             if entry[-1] == self.DELETED_VALUE:
@@ -129,23 +129,23 @@ class PriorityDict:
                 key = self._ek_map[entry[1]]
                 del self._ke_map[key]
                 del self._ek_map[entry[1]]
-                return entry[0], entry[-1]
+                return key, entry[-1], entry[0]
         raise KeyError('The queue is empty')
 
     def get(self, key, default=None):
-        '''retrieve an entry (priority, value) based on key. Returns `default` if key not found'''
+        '''retrieve an entry (value, priority) based on key. Returns `default` if key not found'''
         if key in self._ke_map:
             entry = self._ke_map[key]
             assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
-            return entry[0], entry[-1]
+            return entry[-1], entry[0]
         else:
             return default
 
     def __getitem__(self, key):
-        '''retrieve an entry (priority, value) based on key. Raises KeyError if key not present'''
+        '''retrieve an entry (value, priority) based on key. Raises KeyError if key not present'''
         entry = self._ke_map[key]
         assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
-        return entry[0], entry[-1]
+        return entry[-1], entry[0]
 
     def delete(self, key):
         '''deletes an entry based on key. Does nothing if key not found.'''

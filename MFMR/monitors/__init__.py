@@ -88,7 +88,7 @@ register('Tsp30Beta0-Cont-v0', entry_point='MFMR.monitors.async_algo_monitor:Asy
 })
 
 
-for w in np.arange(1, 2, 0.1):
+for w in np.arange(1, 2.1, 0.1):
     w = np.round(w, 1)
     for n in range(1, 9):
         for difficulty_string in ['easy', 'medium', 'hard']:

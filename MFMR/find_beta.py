@@ -55,7 +55,7 @@ def main():
 
     plt.plot(range(len(utilities)), utilities, color="r")
     plt.tight_layout()
-    plt.show()
+    plt.savefig('beta_plot.png')
 
 
 if __name__ == "__main__":
