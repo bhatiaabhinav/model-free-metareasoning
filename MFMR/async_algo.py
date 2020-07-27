@@ -1,3 +1,5 @@
+from multiprocessing import Manager
+
 import gym
 import numpy as np
 
@@ -5,12 +7,12 @@ import numpy as np
 class AsyncAlgo:
     '''Base class for implemented asynchronously monitored anytime algorithms.'''
 
-    def __init__(self, mem):
+    def __init__(self):
         '''
         The concrete class can set default hyperparameters and settings here using constructor arguments.
         mem should be a shared memory dictionary created using process.Manager().dict()
         '''
-        self.mem = mem
+        self.mem = Manager().dict()
         self.random = np.random.RandomState()
 
     def reset(self):
@@ -67,4 +69,4 @@ class AsyncAlgo:
         pass
 
     def close(self):
-        pass
+        self.mem.clear()

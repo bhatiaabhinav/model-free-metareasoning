@@ -2,6 +2,7 @@
 # import os
 # import re
 # import sys
+import logging
 import time as tm
 from multiprocessing import Manager
 
@@ -29,6 +30,9 @@ CITY_PATTERN = "\d+ (\d+) (\d+)"  # noqa
 DELIMITER = "\n"
 
 ITERATIONS = 100
+
+
+logger = logging.getLogger(__name__)
 
 
 class MultiWeightOpenLists:
@@ -95,7 +99,7 @@ class AAstar(AsyncAlgo):
     TIME_CLASS_COUNT = 100
 
     def __init__(self, weight, discretization, search_problem_cls, *search_problem_args, **search_problem_kwargs):
-        super().__init__(Manager().dict())
+        super().__init__()
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
             *search_problem_args, **search_problem_kwargs)  # type: SearchProblem
@@ -110,11 +114,12 @@ class AAstar(AsyncAlgo):
     # ----------------------------------------------------------------------------------------------------------
 
     def reset(self):
+        logger.info('Resetting')
+        self.mem.clear()
         self.problem.reset()
         self.mem['cost'] = np.inf
         self.start_heuristic = self.problem.heuristic(self.problem.start_state)
-        self.mem['start_time'] = tm.time()
-        self.mem['time'] = 0
+        self.start_time = tm.time()
         self.mem['interrupted'] = False
         '''
         The following stats represent(E[G], E[H], Std(G), Std(H), Corr(G, H), n).
@@ -134,6 +139,7 @@ class AAstar(AsyncAlgo):
         self.mem['stats_closed'] = (0, 0, 0, 0, 0, 0)
 
     def run(self):
+        logger.info('Starting run')
         problem = self.problem
 
         start_node = Node(problem.start_state)
@@ -235,7 +241,6 @@ class AAstar(AsyncAlgo):
 
                     '''Done another iteration of the for loop : a child has been potentially added.
                     Let's check for interruption'''
-                    self.mem['time'] = tm.time() - self.mem['start_time']
                     if self.mem['interrupted']:
                         break
                 '''
@@ -248,7 +253,6 @@ class AAstar(AsyncAlgo):
 
             '''Done another iteration of the while loop : processed a node from the open list.
             Let's check for interruption'''
-            self.mem['time'] = tm.time() - self.mem['start_time']
             if self.mem['interrupted']:
                 break
 
@@ -257,7 +261,7 @@ class AAstar(AsyncAlgo):
         OR the algorithm was interrupted and we have a suboptimal solution.
         '''
 
-        # print('Done')
+        logger.info('Run done')
 
     def update_hyperparams(self, hyperparams):
         pass
@@ -274,8 +278,8 @@ class AAstar(AsyncAlgo):
 
     def get_obs(self):
         # TODO: Incorporate statistics of closed set & open list.
-        self.mem['time'] = tm.time() - self.mem['start_time']
-        cost, time = self.mem['cost'], self.mem['time']
+        time = tm.time() - self.start_time
+        cost = self.mem['cost']
         quality = self.start_heuristic / cost
         return quality, time
 
@@ -296,8 +300,8 @@ class AAstar(AsyncAlgo):
         return quality
 
     def get_time(self):
-        self.mem['time'] = tm.time() - self.mem['start_time']
-        return self.mem['time']
+        time = tm.time() - self.start_time
+        return time
 
     def seed(self, seed):
         super().seed(seed)
@@ -307,4 +311,4 @@ class AAstar(AsyncAlgo):
         pass
 
     def close(self):
-        pass
+        super().close()

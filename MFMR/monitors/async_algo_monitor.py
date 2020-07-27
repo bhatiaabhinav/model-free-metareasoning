@@ -1,3 +1,4 @@
+import logging
 import signal
 import time
 from multiprocessing import Process
@@ -14,6 +15,7 @@ class AsyncAlgoMonitor(gym.Env):
 
     def __init__(self, alpha, beta, monitoring_interval, algo_cls, *algo_args, **algo_kwargs):
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         self.alpha = alpha
         self.beta = beta
         self.monitoring_interval = monitoring_interval
@@ -34,17 +36,34 @@ class AsyncAlgoMonitor(gym.Env):
             self.action_space = gym.spaces.Discrete(2)  # Just STOP/CONTINUE
 
     def reset(self):
-        if self.run_process is not None:
-            self.run_process.terminate()
-            self.run_process = None
+        self.logger.info('Resetting env')
+        self.terminate_process()
 
-        assert self.run_process is None, "Old Episode Still Exists?"
         self.algo.reset()
         obs = self.algo.get_obs()
         self.cur_utility = self.get_cur_utility()
         self.run_process = Process(target=self.algo.run)
         self.run_process.start()
         return obs
+
+    def terminate_process(self):
+        '''terminates the algo, first by invoking interrupt method and giving it a chance to terminate gracefully,
+        and if that does not work within a second, then by sending SIGTERM to the algo process.
+        returns whether the termination was graceful'''
+        graceful = True
+        if self.run_process is not None and self.run_process.is_alive():
+            self.algo.interrupt()
+            self.logger.info('waiting for graceful termination')
+            # give it a second to allow graceful termination
+            self.run_process.join(timeout=1)
+            if self.run_process.exitcode is None:  # i.e. not yet terminated
+                self.logger.debug('Sending SIGTERM to process')
+                while self.run_process.exitcode is None:
+                    self.run_process.terminate()
+                    self.run_process.join(timeout=0.5)
+                graceful = False
+            self.logger.info(f'Graceful termination {graceful}')
+        return graceful
 
     def step(self, action):
         '''Gym API. Returns observation, reward, done, info_dict.
@@ -68,22 +87,15 @@ class AsyncAlgoMonitor(gym.Env):
             # automatically completed ... found the "final" solution.
             self.run_process.join()
             done = True
+            self.logger.info('natural done')
             info['interrupted'] = False
             info['graceful_exit'] = True
         else:
             if not cont_decision:
-                self.algo.interrupt()
-                # give it a second to allow graceful termination
-                self.run_process.join(timeout=1)
-                if self.run_process.exitcode is None:  # i.e. not yet terminated
-                    print('Sending SIGTERM to process')
-                    while self.run_process.exitcode is not None:
-                        self.run_process.terminate()
-                        self.run_process.join(timeout=0.5)
                 done = True
+                self.logger.info('interrupt done')
                 info['interrupted'] = True
-                info['graceful_exit'] = not (
-                    self.run_process.exitcode == -signal.SIGTERM)
+                info['graceful_exit'] = self.terminate_process()
             else:
                 if self.has_hyperparams:
                     self.algo.update_hyperparams(hyperparams)
@@ -120,7 +132,6 @@ class AsyncAlgoMonitor(gym.Env):
 
     def close(self):
         '''GYM API. Close and cleanup any rendering related objects'''
-        if self.run_process is not None:
-            self.run_process.terminate()
-            self.run_process = None
+        self.logger.info('Closing env')
+        self.terminate_process()
         return self.algo.close()

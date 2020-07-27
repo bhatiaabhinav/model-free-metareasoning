@@ -13,12 +13,13 @@ class FileAlgo(AsyncAlgo):
     TIME_CLASS_COUNT = 100
 
     def __init__(self, problem_file_path, increment, discretization):
-        super().__init__(Manager().dict())
+        super().__init__()
         self.dataset = utils.get_dataset(problem_file_path, increment)
         self.instance_id = 0
         self.discretization = discretization
 
     def reset(self):
+        self.mem.clear()
         self.instance_id = self.random.randint(0, len(self.dataset) - 1)
         # print(f"This instance {self.instance_id} has {len(self.dataset[self.instance_id])} states")
         self.mem['state_id'] = 0
@@ -75,4 +76,4 @@ class FileAlgo(AsyncAlgo):
         pass
 
     def close(self):
-        pass
+        super().close()

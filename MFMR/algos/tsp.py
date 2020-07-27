@@ -3,7 +3,6 @@ import os
 import re
 import sys
 import time as tm
-from multiprocessing import Manager
 
 import gym
 import numpy as np
@@ -33,7 +32,7 @@ class Tsp(AsyncAlgo):
     TIME_CLASS_COUNT = 100
 
     def __init__(self, instances_directory, index_file_path, discretization):
-        super().__init__(Manager().dict())
+        super().__init__()
         self.iterations = ITERATIONS
         self.discretization = discretization
         # List of Tuples: (cities, start_city, optimal_cost)
@@ -159,6 +158,7 @@ class Tsp(AsyncAlgo):
     # ----------------------------------------------------------------------------------------------------------
 
     def reset(self):
+        self.mem.clear()
         self.instance_id = self.random.randint(len(self.problems))
         self.cities, self.start_city, self.optimal_cost = self.problems[self.instance_id]
         self.mem['tour'] = self.get_initial_random_tour(
@@ -248,4 +248,4 @@ class Tsp(AsyncAlgo):
         pass
 
     def close(self):
-        pass
+        super().close()

@@ -40,6 +40,8 @@ def main():
         if is_episode_done:
             break
 
+    metareasoning_env.close()
+
     plt.figure(figsize=(7, 3))
     plt.rcParams["font.family"] = "Times New Roman"
     plt.rcParams["font.size"] = 14
@@ -55,7 +57,7 @@ def main():
 
     plt.plot(range(len(utilities)), utilities, color="r")
     plt.tight_layout()
-    plt.savefig('beta_plot.png')
+    plt.savefig('output/beta_plot.png')
 
 
 if __name__ == "__main__":
