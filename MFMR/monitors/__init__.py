@@ -101,7 +101,9 @@ for w in np.arange(1, 2.1, 0.1):
                              'monitoring_interval': 1 / 10,
                              'algo_cls': AAstar,
                              'weight': w,
-                             'discretization': False,
+                             'weight_max': 2,
+                             'weight_interval': 0.1,
+                             'time_max': 15,
                              'search_problem_cls': NPuzzle,
                              'n': n,
                              'difficulty_string': difficulty_string

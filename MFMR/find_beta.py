@@ -12,9 +12,9 @@ def main():
     random.seed(0)
     metareasoning_env = gym.make(
         'A1.5Astar-4puzzle-medium-B0.3-v0')  # type: AsyncAlgoMonitor
-    metareasoning_env = TimeLimit(metareasoning_env, max_episode_steps=150)
+    # metareasoning_env = TimeLimit(metareasoning_env, max_episode_steps=150)
 
-    # metareasoning_env.seed(0)
+    metareasoning_env.seed(0)
     metareasoning_env.reset()
     quality = metareasoning_env.algo.get_solution_quality()
     qualities = [quality]
@@ -27,6 +27,9 @@ def main():
     while True:
         obs, r, is_episode_done, info = metareasoning_env.step(
             metareasoning_env.CONTINUE_ACTION)
+
+        # print(obs)
+        # print(info)
 
         steps += 1
         time = metareasoning_env.get_time()

@@ -44,6 +44,7 @@ def test_basic(env, seed):
         assert d
         if not i['graceful_exit']:
             assert i['interrupted']
+    env.close()
 
 
 @pytest.mark.parametrize("seed", range(25))
@@ -61,6 +62,7 @@ def test_final_solution(env, seed):
     assert d
     assert not i['interrupted']
     assert i['graceful_exit']
+    env.close()
 
 
 @pytest.mark.parametrize("seed", range(25))
@@ -73,6 +75,7 @@ def test_interrupted(env, seed):
     assert d
     if not i['graceful_exit']:
         assert i['interrupted']
+    env.close()
 
 
 # in command line, run `pytest Tests/` after activating virtualenv

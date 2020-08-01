@@ -4,7 +4,7 @@
 # import sys
 import logging
 import time as tm
-from multiprocessing import Manager
+from typing import List
 
 import gym
 import numpy as np
@@ -14,6 +14,9 @@ from MFMR.algos.search_problem import (Node, PriorityDict, SearchProblem,
                                        get_key)
 from MFMR.async_algo import AsyncAlgo
 from MFMR.utils import update_mean_std_corr
+
+# from multiprocessing import Manager
+
 
 FILE_TEMPLATE = """NAME : %s
 COMMENT : %s
@@ -98,20 +101,20 @@ class AAstar(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, weight, discretization, search_problem_cls, *search_problem_args, **search_problem_kwargs):
+    def __init__(self, weight, weight_max, weight_interval, time_max, search_problem_cls, *search_problem_args, **search_problem_kwargs):
         super().__init__()
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
             *search_problem_args, **search_problem_kwargs)  # type: SearchProblem
         self.w = weight
-        self.discretization = discretization
-        if self.discretization:
-            raise ValueError(
-                'Discretization is not yet supported for this environment')
-
-    # ------------------------------------------ helper methods -----------------------------------------------
-
-    # ----------------------------------------------------------------------------------------------------------
+        self.w_min = 1
+        self.w_max = weight_max
+        self.w_interval = weight_interval
+        self.t_max = time_max
+        # self.discretization = discretization
+        # if self.discretization:
+        #     raise ValueError(
+        #         'Discretization is not yet supported for this environment')
 
     def reset(self):
         logger.info('Resetting')
@@ -137,6 +140,7 @@ class AAstar(AsyncAlgo):
         '''
         self.mem['stats_open'] = (0, 0, 0, 0, 0, 0)
         self.mem['stats_closed'] = (0, 0, 0, 0, 0, 0)
+        self.mem['w'] = self.w
 
     def run(self):
         logger.info('Starting run')
@@ -147,7 +151,8 @@ class AAstar(AsyncAlgo):
 
         '''The open list prioritizes nodes acc to f' = g + wh '''
         open_lists = MultiWeightOpenLists(
-            self.w, w_min=1, w_max=2, w_interval=0.1)
+            self.w, w_min=self.w_min, w_max=self.w_max, w_interval=self.w_interval)
+        self.mem['w'] = open_lists.w
 
         closed_set = set()
 
@@ -240,8 +245,8 @@ class AAstar(AsyncAlgo):
                         pass
 
                     '''Done another iteration of the for loop : a child has been potentially added.
-                    Let's check for interruption'''
-                    if self.mem['interrupted']:
+                    Let's check for interruption or timeout'''
+                    if self.mem['interrupted'] or (tm.time() - self.start_time) > self.t_max:
                         break
                 '''
                 For loop ends here. We have expanded the current node and added (some of) its children to open list.
@@ -252,9 +257,18 @@ class AAstar(AsyncAlgo):
                 pass
 
             '''Done another iteration of the while loop : processed a node from the open list.
-            Let's check for interruption'''
-            if self.mem['interrupted']:
+            Let's check for interruption or timeout'''
+            if self.mem['interrupted'] or (tm.time() - self.start_time) > self.t_max:
                 break
+            '''No interruption, so let's see if we need to change w'''
+            action_meaning = self.get_action_meanings()[self.mem['action']]
+            if action_meaning == 'INC_W':
+                open_lists.increment_w()
+            elif action_meaning == 'DEC_W':
+                open_lists.decrement_w()
+            else:
+                pass
+            self.mem['w'] = open_lists.w
 
         '''
         At this point, EITHER the open list is empty and we have found an optimal solution
@@ -263,25 +277,24 @@ class AAstar(AsyncAlgo):
 
         logger.info('Run done')
 
-    def update_hyperparams(self, hyperparams):
-        pass
-
-    def get_hyperparam_space(self) -> gym.Space:
-        return gym.spaces.Box(low=np.array([]), high=np.array([]))
-
     def interrupt(self):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
+        '''weight, quality, time'''
         # TODO: Incorporate statistics of closed set & open list.
-        return gym.spaces.Box(low=np.array([0, 0]), high=np.array([self.QUALITY_CLASS_COUNT, self.TIME_CLASS_COUNT]), shape=(2, ), dtype=np.float)
+        return gym.spaces.Box(low=np.array([self.w_min, 0.0, 0.0]), high=np.array([self.w_max, 1.0, self.t_max]), shape=(3, ), dtype=np.float)
 
     def get_obs(self):
         # TODO: Incorporate statistics of closed set & open list.
-        time = tm.time() - self.start_time
+        time = (tm.time() - self.start_time) / self.t_max
         cost = self.mem['cost']
         quality = self.start_heuristic / cost
-        return quality, time
+        w = self.mem['w']
+        return w, quality, time
+
+    def get_info(self):
+        return {'w': self.mem['w']}
 
     # not yet supported
     # def get_discretized_state(self, raw_state):
@@ -293,6 +306,16 @@ class AAstar(AsyncAlgo):
     #         return utils.digitize(raw_quality, quality_bounds), utils.digitize(raw_time, time_bounds)
 
     #     return raw_state
+
+    def get_action_space(self) -> gym.Space:
+        return gym.spaces.Discrete(len(self.get_action_meanings()))
+
+    def get_action_meanings(self) -> List[str]:
+        return ['NOOP', 'INC_W', 'DEC_W']
+        # return ['NOOP']
+
+    def set_action(self, action):
+        super().set_action(action)
 
     def get_solution_quality(self):
         cost = self.mem['cost']
