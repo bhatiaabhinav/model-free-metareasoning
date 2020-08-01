@@ -10,8 +10,8 @@ from MFMR.async_algo import AsyncAlgo
 
 
 class AsyncAlgoMonitor(gym.Env):
-    STOP_ACTION = 0
-    CONTINUE_ACTION = 1
+    STOP_ACTION = None
+    CONTINUE_ACTION = 0
 
     def __init__(self, alpha, beta, monitoring_interval, algo_cls, *algo_args, **algo_kwargs):
         super().__init__()
@@ -26,14 +26,17 @@ class AsyncAlgoMonitor(gym.Env):
         self.observation_space = self.algo.get_obs_space()
 
         # set action space
-        # It is a mixed action space: Dicrete(2) X HyperparamSpace
-        self.hyperparam_space = self.algo.get_hyperparam_space()
-        self.has_hyperparams = self.hyperparam_space.shape[0] > 0
-        if self.has_hyperparams:
-            self.action_space = gym.spaces.Tuple(
-                (gym.spaces.Discrete(2), self.hyperparam_space))
-        else:
-            self.action_space = gym.spaces.Discrete(2)  # Just STOP/CONTINUE
+        algo_ac_space = self.algo.get_action_space()
+        assert isinstance(algo_ac_space, gym.spaces.Discrete)
+        self.action_space = gym.spaces.Discrete(
+            algo_ac_space.n + 1)  # add stop as the last action
+        self.action_meanings = self.algo.get_action_meanings() + ['STOP']
+        self.STOP_ACTION = self.action_space.n - 1
+        assert self.action_meanings[0] == 'NOOP'
+        assert len(self.action_meanings) == self.action_space.n
+
+    def get_action_meanings(self):
+        return self.action_meanings
 
     def reset(self):
         self.logger.info('Resetting env')
@@ -74,10 +77,8 @@ class AsyncAlgoMonitor(gym.Env):
         '''
         assert self.action_space.contains(
             action), f"Invalid action. Action space is {self.action_space}"
-        if self.has_hyperparams:
-            cont_decision, hyperparams = action
-        else:
-            cont_decision = action
+
+        cont_decision = action < self.action_space.n - 1  # i.e. not 'STOP'
 
         done = False
         info = {'interrupted': False, 'graceful_exit': True}
@@ -97,14 +98,14 @@ class AsyncAlgoMonitor(gym.Env):
                 info['interrupted'] = True
                 info['graceful_exit'] = self.terminate_process()
             else:
-                if self.has_hyperparams:
-                    self.algo.update_hyperparams(hyperparams)
+                self.algo.set_action(action)
                 time.sleep(self.monitoring_interval)
 
         info['solution_quality'] = self.algo.get_solution_quality()
         info['time'] = self.algo.get_time()
         self.cur_utility = self.get_cur_utility()
         info['utility'] = self.cur_utility
+        info.update(self.algo.get_info())
 
         reward = self.cur_utility - self.prev_utility
 

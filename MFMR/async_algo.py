@@ -1,4 +1,5 @@
 from multiprocessing import Manager
+from typing import List
 
 import gym
 import numpy as np
@@ -13,6 +14,7 @@ class AsyncAlgo:
         mem should be a shared memory dictionary created using process.Manager().dict()
         '''
         self.mem = Manager().dict()
+        self.mem['action'] = 0
         self.random = np.random.RandomState()
 
     def reset(self):
@@ -27,14 +29,6 @@ class AsyncAlgo:
         Make sure you called reset before run. It is expected that this method will be invoked as a seperate process using process module. The method will keep updating the appropriate variables in self.mem so that other methods like `get_obs` and `update_hyperparams` work as expected'''
         raise NotImplementedError()
 
-    def update_hyperparams(self, hyperparams):
-        '''sets new hyperparams. Race conditions, locks etc are taken care of here'''
-        pass
-
-    def get_hyperparam_space(self) -> gym.Space:
-        ''' Hyperparameter space. Does NOT include 'STOP/CONT' space'''
-        return gym.spaces.Box(np.array([]), np.array([]))
-
     def interrupt(self):
         '''Issues a shutdown signal to gracefully stop `run`.
         '''
@@ -48,6 +42,24 @@ class AsyncAlgo:
         '''
         Returns how the algo wants to be 'seen'. Can include quality, time, and other variables - appropriately discretized sometimes'''
         raise NotImplementedError()
+
+    def get_info(self):
+        '''A dictionary containing any info of interest. Useful for analysis and logging'''
+        return {}
+
+    def get_action_space(self) -> gym.Space:
+        '''space of actions (excluding STOP/CONTINUE). If dicrete, should be atleast Dicrete(1), with action 0 being NOOP.
+        TODO: Only Dicrete action spaces are supported right now'''
+        return gym.spaces.Discrete(1)
+
+    def get_action_meanings(self) -> List[str]:
+        '''a list of action meaning strings correspoding to each action's integer code. First item in the list should always be "NOOP"'''
+        return ['NOOP']
+
+    def set_action(self, action):
+        '''sets self.mem['action'] = action. This action does not include STOP/CONTINUE. 0 always means NOOP. Other action codes should be used to update hyperparams'''
+        assert self.get_action_space().contains(action)
+        self.mem['action'] = action
 
     def get_solution_quality(self):
         '''should return a float scalar - the solution quality right now.
