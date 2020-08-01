@@ -10,8 +10,7 @@ import gym
 import numpy as np
 
 from MFMR import utils
-from MFMR.algos.search_problem import (Node, PriorityDict, SearchProblem,
-                                       get_key)
+from MFMR.algos.search_problem import Node, PriorityDict, SearchProblem
 from MFMR.async_algo import AsyncAlgo
 from MFMR.utils import update_mean_std_corr
 
@@ -147,7 +146,7 @@ class AAstar(AsyncAlgo):
         problem = self.problem
 
         start_node = Node(problem.start_state)
-        start_node_key = get_key(start_node.state)
+        start_node_key = problem.hash_state(start_node.state)
 
         '''The open list prioritizes nodes acc to f' = g + wh '''
         open_lists = MultiWeightOpenLists(
@@ -188,7 +187,7 @@ class AAstar(AsyncAlgo):
                     child_node_g, child_node_h = child_node.path_cost, problem.heuristic(
                         child_node.state)
                     child_node_f = child_node_g + child_node_h
-                    child_node_key = get_key(child_node.state)
+                    child_node_key = problem.hash_state(child_node.state)
 
                     if child_node_f < best_solution_f:
                         '''This child is worthy of creation. Its subtree might create a better solution'''

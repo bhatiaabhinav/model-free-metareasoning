@@ -37,9 +37,8 @@ class SearchProblem:
     def heuristic(self, state):
         raise NotImplementedError()
 
-
-def get_key(state):
-    return str(state.tolist())
+    def hash_state(state):
+        raise NotImplementedError()
 
 
 class Node:

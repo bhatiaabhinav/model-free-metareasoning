@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.spatial import distance
 
-from MFMR.algos.search_problem import SearchProblem, get_key
+from MFMR.algos.search_problem import SearchProblem
 
 BLANK_SYMBOL = 0
 ACTIONS = {
@@ -119,7 +119,7 @@ class NPuzzle(SearchProblem):
         return puzzle
 
     def get_manhattan_distance(self, puzzle):
-        puzzle_key = get_key(puzzle)
+        puzzle_key = self.hash_state(puzzle)
         if puzzle_key in self.cache:
             return self.cache[puzzle_key]
 
@@ -164,3 +164,6 @@ class NPuzzle(SearchProblem):
 
     def heuristic(self, state):
         return self.get_manhattan_distance(state)
+
+    def hash_state(self, state):
+        return str(state.tolist())
