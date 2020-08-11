@@ -5,6 +5,7 @@ from MFMR.algos.aastar import AAstar
 from MFMR.algos.file_algo import FileAlgo
 from MFMR.algos.n_puzzle import NPuzzle
 from MFMR.algos.tsp import Tsp
+from MFMR.algos.tsp_search_prob import TSPProblem
 
 register('FileAlgo-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor', kwargs={
     'alpha': 200,
@@ -88,11 +89,11 @@ register('Tsp30Beta0-Cont-v0', entry_point='MFMR.monitors.async_algo_monitor:Asy
 })
 
 
-for w in np.arange(1, 2.1, 0.1):
+for w in np.arange(1, 20.1, 0.5):
     w = np.round(w, 1)
     for n in range(1, 9):
         for difficulty_string in ['easy', 'medium', 'hard']:
-            for beta in np.arange(0, 10.1, 0.1):
+            for beta in np.arange(0, 1.1, 0.1):
                 beta = np.round(beta, 1)
                 register(f'A{w}Astar-{n}puzzle-{difficulty_string}-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
                          kwargs={
@@ -101,11 +102,36 @@ for w in np.arange(1, 2.1, 0.1):
                              'monitoring_interval': 1 / 10,
                              'algo_cls': AAstar,
                              'weight': w,
-                             'weight_max': 2,
-                             'weight_interval': 0.1,
+                             'weight_max': 10 * w,
+                             'weight_interval': 0.25,
                              'time_max': 15,
+                             'adjust_weight': True,
+                             'observe_ub': True,
                              'search_problem_cls': NPuzzle,
                              'n': n,
                              'difficulty_string': difficulty_string
                          }
                          )
+
+
+for w in np.arange(1, 20.1, 0.5):
+    w = np.round(w, 1)
+    for n in range(10, 51, 5):
+        for beta in np.arange(0, 1.1, 0.1):
+            beta = np.round(beta, 1)
+            register(f'A{w}Astar-{n}tsp-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                     kwargs={
+                         'alpha': 200,
+                         'beta': beta,
+                         'monitoring_interval': 1 / 10,
+                         'algo_cls': AAstar,
+                         'weight': w,
+                         'weight_max': 10,
+                         'weight_interval': 0.25,
+                         'time_max': 15,
+                         'adjust_weight': True,
+                         'observe_ub': True,
+                         'search_problem_cls': TSPProblem,
+                         'N': n
+                     }
+                     )

@@ -4,12 +4,23 @@ import time
 from multiprocessing import Process
 
 import gym
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np  # noqa
+from gym.envs.classic_control.rendering import SimpleImageViewer
 
 from MFMR.async_algo import AsyncAlgo
 
+# mpl.rcParams['text.antialiased'] = False
+fig = plt.gcf()
+fig.set_size_inches(4, 3)
+ax = plt.gca()
+plt.setp([ax.get_xticklines() + ax.get_yticklines() +
+          ax.get_xgridlines() + ax.get_ygridlines()], antialiased=False)
+
 
 class AsyncAlgoMonitor(gym.Env):
+    metadata = {'render.modes': ['human', 'rgb_array']}
     STOP_ACTION = None
     CONTINUE_ACTION = 0
 
@@ -35,6 +46,8 @@ class AsyncAlgoMonitor(gym.Env):
         assert self.action_meanings[0] == 'NOOP'
         assert len(self.action_meanings) == self.action_space.n
 
+        self.viewer = None
+
     def get_action_meanings(self):
         return self.action_meanings
 
@@ -47,6 +60,11 @@ class AsyncAlgoMonitor(gym.Env):
         self.cur_utility = self.get_cur_utility()
         self.run_process = Process(target=self.algo.run)
         self.run_process.start()
+        self.render_ts = []
+        self.render_qs = []
+        self.render_utils = []
+        self.render_ws = []
+        self.render_q_ubs = []
         return obs
 
     def terminate_process(self):
@@ -129,10 +147,42 @@ class AsyncAlgoMonitor(gym.Env):
 
     def render(self, mode='human'):
         '''GYM API. Some Nice Visualization'''
-        return self.algo.render(mode=mode)
+        info = self.algo.get_info()
+        # self.render_infos.append(info)
+        self.render_ts.append(self.get_time())
+        self.render_qs.append(self.alpha * self.get_solution_quality())
+        self.render_utils.append(self.get_cur_utility())
+        x = self.render_ts
+        plt.clf()
+        plt.plot(x, self.render_qs, label='q', color='blue')
+        plt.plot(x, self.render_utils, label='util', color='red')
+        if 'w' in info:
+            self.render_ws.append(10 * info['w'])
+            plt.plot(x, self.render_ws, label='10*w', color='brown')
+        if 'q_ub' in info:
+            self.render_q_ubs.append(self.alpha * info['q_ub'])
+            plt.plot(x, self.render_q_ubs, label='q ub', color='green')
+        plt.legend()
+        plt.grid()
+        # plt.tight_layout()
+        fig.canvas.draw()
+        data = np.fromstring(fig.canvas.tostring_rgb(),
+                             dtype=np.uint8)
+        img = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+        if mode == 'rgb_array':
+            return img
+        elif mode == 'human':
+            if self.viewer is None:
+                self.viewer = SimpleImageViewer()
+            # X = np.array(fig.canvas.renderer.buffer_rgba())
+            self.viewer.imshow(img)
+        else:
+            raise ValueError(f'Render mode {mode} not supported')
 
     def close(self):
         '''GYM API. Close and cleanup any rendering related objects'''
         self.logger.info('Closing env')
+        if self.viewer is not None:
+            self.viewer.close()
         self.terminate_process()
         return self.algo.close()

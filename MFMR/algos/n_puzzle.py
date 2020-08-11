@@ -147,17 +147,14 @@ class NPuzzle(SearchProblem):
         return np.array_equal(state, goal)
 
     def successors(self, state):
-        successors = []
-
         for action in ACTIONS:
             location = self.get_blank_location(state)
             next_location = self.get_next_blank_location(location, action)
 
             if self.is_valid_blank_location(state, next_location):
                 next_puzzle = self.get_next_puzzle(state, action)
-                successors.append({'state': next_puzzle, 'action': action})
-
-        return successors
+                successor = {'state': next_puzzle, 'action': action}
+                yield successor
 
     def cost(self, state, action, next_state):
         return 1

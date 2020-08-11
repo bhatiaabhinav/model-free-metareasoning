@@ -15,15 +15,13 @@ class SearchProblem:
         raise NotImplementedError()
 
     def get_children_nodes(self, parent):
-        children_nodes = []
         for successor in self.successors(parent.state):
             path_cost = parent.path_cost + \
                 self.cost(
                     parent.state, successor['action'], successor['state'])
             child_node = Node(
                 successor['state'], parent, path_cost, parent.depth + 1, successor['action'])
-            children_nodes.append(child_node)
-        return children_nodes
+            yield child_node
 
     def goal_test(self, state):
         raise NotImplementedError()
@@ -119,6 +117,7 @@ class PriorityDict:
     def pop(self):
         '''retrieve lowest priority entry and remove it. Returns (key, value, priority) tuple'''
         while not self._pq.empty():
+            # e_zero = self.peek()
             entry = self._pq.get()
             if entry[-1] == self.DELETED_VALUE:
                 # automatically popped. No housekeeping needed in other data structs.
@@ -128,6 +127,21 @@ class PriorityDict:
                 key = self._ek_map[entry[1]]
                 del self._ke_map[key]
                 del self._ek_map[entry[1]]
+                # assert e_zero == (key, entry[-1], entry[0])
+                return key, entry[-1], entry[0]
+        raise KeyError('The queue is empty')
+
+    def peek(self):
+        '''peek lowest priority entry without removing it. Returns (key, value, priority) tuple'''
+        while not self._pq.empty():
+            entry = self._pq.get()
+            if entry[-1] == self.DELETED_VALUE:
+                # automatically popped. No housekeeping needed in other data structs.
+                assert entry[1] not in self._ek_map, "A deleted entry found in hashmap"
+                continue
+            else:
+                self._pq.put(entry)  # add it back
+                key = self._ek_map[entry[1]]
                 return key, entry[-1], entry[0]
         raise KeyError('The queue is empty')
 
