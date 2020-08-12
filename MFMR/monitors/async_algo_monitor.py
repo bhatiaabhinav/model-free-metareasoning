@@ -24,17 +24,29 @@ class AsyncAlgoMonitor(gym.Env):
     STOP_ACTION = None
     CONTINUE_ACTION = 0
 
-    def __init__(self, alpha, beta, monitoring_interval, algo_cls, *algo_args, **algo_kwargs):
+    def __init__(self, alpha, beta_options, monitoring_interval, observe_beta, algo_cls, *algo_args, **algo_kwargs):
         super().__init__()
         self.logger = logging.getLogger(__name__)
+        self.random = np.random.RandomState()
         self.alpha = alpha
-        self.beta = beta
+        self.beta_options = beta_options
+        self.beta = self.random.choice(self.beta_options)
         self.monitoring_interval = monitoring_interval
+        self.observe_beta = observe_beta
         self.algo = algo_cls(*algo_args, **algo_kwargs)  # type: AsyncAlgo
         self.run_process = None
 
         # set observation space.
-        self.observation_space = self.algo.get_obs_space()
+        if self.observe_beta:
+            algo_obs_space = self.algo.get_obs_space()  # type: gym.spaces.Box
+            low = np.concatenate(
+                (algo_obs_space.low, np.array([0], dtype=np.float32)))
+            high = np.concatenate(
+                (algo_obs_space.high, np.array([1], dtype=np.float32)))
+            self.observation_space = gym.spaces.Box(
+                low, high, dtype=np.float32)
+        else:
+            self.observation_space = self.algo.get_obs_space()
 
         # set action space
         algo_ac_space = self.algo.get_action_space()
@@ -55,8 +67,8 @@ class AsyncAlgoMonitor(gym.Env):
         self.logger.info('Resetting env')
         self.terminate_process()
 
+        self.beta = self.random.choice(self.beta_options)
         self.algo.reset()
-        obs = self.algo.get_obs()
         self.cur_utility = self.get_cur_utility()
         self.run_process = Process(target=self.algo.run)
         self.run_process.start()
@@ -65,7 +77,9 @@ class AsyncAlgoMonitor(gym.Env):
         self.render_utils = []
         self.render_ws = []
         self.render_q_ubs = []
-        return obs
+        while not self.run_process.is_alive():
+            time.sleep(0.001)
+        return self.get_obs()
 
     def terminate_process(self):
         '''terminates the algo, first by invoking interrupt method and giving it a chance to terminate gracefully,
@@ -99,7 +113,7 @@ class AsyncAlgoMonitor(gym.Env):
         cont_decision = action < self.action_space.n - 1  # i.e. not 'STOP'
 
         done = False
-        info = {'interrupted': False, 'graceful_exit': True}
+        info = {'beta': self.beta, 'interrupted': 0, 'graceful_exit': 1}
         self.prev_utility = self.cur_utility
 
         if not self.run_process.is_alive():
@@ -107,14 +121,14 @@ class AsyncAlgoMonitor(gym.Env):
             self.run_process.join()
             done = True
             self.logger.info('natural done')
-            info['interrupted'] = False
-            info['graceful_exit'] = True
+            info['interrupted'] = 0
+            info['graceful_exit'] = 1
         else:
             if not cont_decision:
                 done = True
                 self.logger.info('interrupt done')
-                info['interrupted'] = True
-                info['graceful_exit'] = self.terminate_process()
+                info['interrupted'] = 1
+                info['graceful_exit'] = int(self.terminate_process())
             else:
                 self.algo.set_action(action)
                 time.sleep(self.monitoring_interval)
@@ -127,7 +141,13 @@ class AsyncAlgoMonitor(gym.Env):
 
         reward = self.cur_utility - self.prev_utility
 
-        return self.algo.get_obs(), reward, done, info
+        return self.get_obs(), reward, done, info
+
+    def get_obs(self):
+        if self.observe_beta:
+            return np.concatenate((np.asarray([self.beta], dtype=np.float32), self.algo.get_obs()))
+        else:
+            return self.algo.get_obs()
 
     def get_solution_quality(self):
         return self.algo.get_solution_quality()
@@ -143,6 +163,7 @@ class AsyncAlgoMonitor(gym.Env):
 
     def seed(self, seed):
         super().seed()
+        self.random.seed(seed)
         self.algo.seed(seed)
 
     def render(self, mode='human'):

@@ -40,19 +40,27 @@ ROUND = 2
 
 class MultiWeightOpenLists:
     def __init__(self, w_init, w_min, w_max, w_interval=0.1):
-        self.round = 2
         self.w = np.round(w_init, ROUND)
         self.w_min = np.round(w_min, ROUND)
         self.w_max = np.round(w_max, ROUND)
         self.w_interval = np.round(w_interval, ROUND)
         self.ws = np.round(
             np.arange(w_min, w_max + w_interval, w_interval), ROUND)
+        self.w_min, self.w_max, self.w_interval, self.ws = MultiWeightOpenLists.get_weights_list(
+            w_min, w_max, w_interval)
         if self.w not in self.ws:
             raise ValueError(
                 f'w_init={self.w} is not valid. It should be in the space created by other arguments')
         self.open_lists = {}
         for w in self.ws:
             self.open_lists[w] = PriorityDict(tie_breaker='LIFO')
+
+    def get_weights_list(w_min, w_max, w_interval):
+        w_min = np.round(w_min, ROUND)
+        w_max = np.round(w_max, ROUND)
+        w_interval = np.round(w_interval, ROUND)
+        ws = np.round(np.arange(w_min, w_max + w_interval, w_interval), ROUND)
+        return w_min, w_max, w_interval, ws
 
     def pop(self):
         '''Retrives and delete the node with the least f' value from the open list with current w.
@@ -120,6 +128,8 @@ class AAstar(AsyncAlgo):
         self.adjust_weight = adjust_weight
         self.observe_ub = observe_ub
         self.viewer = None
+        self.ws = MultiWeightOpenLists.get_weights_list(
+            self.w_min, self.w_max, self.w_interval)[-1]
         # self.discretization = discretization
         # if self.discretization:
         #     raise ValueError(
@@ -129,6 +139,7 @@ class AAstar(AsyncAlgo):
         logger.info('Resetting')
         self.mem.clear()
         self.problem.reset()
+        self.mem['action'] = 0
         self.mem['cost'] = np.inf
         self.start_heuristic = self.problem.heuristic(self.problem.start_state)
         self.start_time = tm.time()
@@ -150,7 +161,7 @@ class AAstar(AsyncAlgo):
         self.mem['stats_open'] = (0, 0, 0, 0, 0, 0)
         self.mem['stats_closed'] = (0, 0, 0, 0, 0, 0)
         self.mem['w'] = self.w
-        self.mem['cost_lb'] = 0
+        self.mem['cost_lbs'] = [0 for w in self.ws]
         self.mem['n_solutions'] = 0
         self.render_w = []
         self.render_q = []
@@ -181,7 +192,7 @@ class AAstar(AsyncAlgo):
         # lowest_open_f = start_node_g + start_node_h
         # self.mem['stats_open'] = update_mean_std_corr(
         #     *self.mem['stats_open'], start_node_g, start_node_h)
-        self.mem['cost_lb'] = open_lists.peek(1)[2]
+        self.mem['cost_lbs'] = [open_lists.peek(w)[2] for w in self.ws]
 
         path_costs = {start_node_key: start_node.path_cost}
 
@@ -193,7 +204,8 @@ class AAstar(AsyncAlgo):
             # self.mem['stats_open'] = update_mean_std_corr(
             #     *self.mem['stats_open'], current_node_g, current_node_h, remove=True)
             if len(open_lists) > 0:
-                self.mem['cost_lb'] = open_lists.peek(1)[2]
+                self.mem['cost_lbs'] = [open_lists.peek(
+                    w)[2] for w in self.ws]
 
             if current_node_f < best_solution_f:
                 '''This node is worth exploring. Its subtree might contain a better solution'''
@@ -246,7 +258,8 @@ class AAstar(AsyncAlgo):
                                 # lowest_open_f = min(lowest_open_f, )
                                 # self.mem['stats_open'] = update_mean_std_corr(
                                 #     *self.mem['stats_open'], child_node_g, child_node_h)
-                                self.mem['cost_lb'] = open_lists.peek(1)[2]
+                                self.mem['cost_lbs'] = [
+                                    open_lists.peek(w)[2] for w in self.ws]
                             else:
                                 '''ignore this duplicate child node because it is worse than the old node'''
                                 pass
@@ -287,6 +300,7 @@ class AAstar(AsyncAlgo):
                 open_lists.decrement_w()
             else:
                 pass
+            self.mem['action'] = 0
             self.mem['w'] = open_lists.w
 
         '''
@@ -300,13 +314,13 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
+        '''weight, quality, time, upper bounds for each weight'''
         # TODO: Incorporate statistics of closed set & open list.
         if self.observe_ub:
-            '''weight, quality, ub, time'''
-            return gym.spaces.Box(low=np.array([0, 0.0, 0.0, 0.0]), high=np.array([self.w_max, 1.0, 1.0, self.t_max]), shape=(4, ), dtype=np.float)
+            return gym.spaces.Box(low=np.array([1.0, 0.0, 0.0] + [0.0]*len(self.ws)), high=np.array([self.w_max, 1.0, self.t_max] + [1.0]*len(self.ws)), dtype=np.float32)
         else:
             '''weight, quality, time'''
-            return gym.spaces.Box(low=np.array([1, 0.0, 0.0]), high=np.array([self.w_max, 1.0, self.t_max]), shape=(3, ), dtype=np.float)
+            return gym.spaces.Box(low=np.array([1.0, 0.0, 0.0]), high=np.array([self.w_max, 1.0, self.t_max]), dtype=np.float32)
 
     def get_obs(self):
         # TODO: Incorporate statistics of closed set & open list.
@@ -314,15 +328,20 @@ class AAstar(AsyncAlgo):
         cost = self.mem['cost']
         quality = self.start_heuristic / cost
         w = (self.mem['w'] - self.w_min) / (self.w_max - self.w_min)
-        q_ub = min(self.start_heuristic / self.mem['cost_lb'], 1)
+        basic_obs = np.asarray((w, quality, time), dtype=np.float32)
         if self.observe_ub:
-            return w, quality, q_ub, time
+            q_ubs = np.minimum(
+                self.start_heuristic / (np.asarray(self.mem['cost_lbs'], dtype=np.float32) + 1e-9), 1)
+            return np.concatenate((basic_obs, q_ubs))
         else:
-            return w, quality, time
+            return basic_obs
 
     def get_info(self):
-        q_ub = min(self.start_heuristic / self.mem['cost_lb'], 1)
-        return {'w': self.mem['w'], 'q_ub': q_ub, 'n_solutions': self.mem['n_solutions']}
+        q_ub = min(self.start_heuristic / (self.mem['cost_lbs'][0] + 1e-9), 1)
+        info = {'w': self.mem['w'], 'q_ub': q_ub,
+                'n_solutions': self.mem['n_solutions']}
+        info.update(self.problem.info)
+        return info
 
     # not yet supported
     # def get_discretized_state(self, raw_state):

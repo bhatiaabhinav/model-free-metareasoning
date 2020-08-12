@@ -89,7 +89,7 @@ register('Tsp30Beta0-Cont-v0', entry_point='MFMR.monitors.async_algo_monitor:Asy
 })
 
 
-for w in np.arange(1, 20.1, 0.5):
+for w in np.arange(1, 6.1, 0.5):
     w = np.round(w, 1)
     for n in range(1, 9):
         for difficulty_string in ['easy', 'medium', 'hard']:
@@ -98,11 +98,11 @@ for w in np.arange(1, 20.1, 0.5):
                 register(f'A{w}Astar-{n}puzzle-{difficulty_string}-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
                          kwargs={
                              'alpha': 200,
-                             'beta': beta,
+                             'beta_options': [beta - 0.1, beta, beta + 0.1],
                              'monitoring_interval': 1 / 10,
                              'algo_cls': AAstar,
                              'weight': w,
-                             'weight_max': 10 * w,
+                             'weight_max': 6,
                              'weight_interval': 0.25,
                              'time_max': 15,
                              'adjust_weight': True,
@@ -114,7 +114,7 @@ for w in np.arange(1, 20.1, 0.5):
                          )
 
 
-for w in np.arange(1, 20.1, 0.5):
+for w in np.arange(1, 6.1, 0.5):
     w = np.round(w, 1)
     for n in range(10, 51, 5):
         for beta in np.arange(0, 1.1, 0.1):
@@ -122,16 +122,17 @@ for w in np.arange(1, 20.1, 0.5):
             register(f'A{w}Astar-{n}tsp-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
                      kwargs={
                          'alpha': 200,
-                         'beta': beta,
+                         'beta_options': [beta - 0.1, beta, beta + 0.1],
                          'monitoring_interval': 1 / 10,
+                         'observe_beta': True,
                          'algo_cls': AAstar,
                          'weight': w,
-                         'weight_max': 10,
+                         'weight_max': 6,
                          'weight_interval': 0.25,
                          'time_max': 15,
                          'adjust_weight': True,
                          'observe_ub': True,
                          'search_problem_cls': TSPProblem,
-                         'N': n
+                         'N_options': [n-5, n, n+5]
                      }
                      )

@@ -12,7 +12,7 @@ from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 def main():
     random.seed(0)
     metareasoning_env = gym.make(
-        'A5.0Astar-20tsp-B0.3-v0')  # type: AsyncAlgoMonitor
+        'A2.0Astar-20tsp-B0.3-v0')  # type: AsyncAlgoMonitor
     # metareasoning_env = TimeLimit(metareasoning_env, max_episode_steps=150)
 
     metareasoning_env.seed(0)
@@ -27,9 +27,8 @@ def main():
     steps = 0
 
     while True:
-        obs, r, is_episode_done, info = metareasoning_env.step(
-            metareasoning_env.CONTINUE_ACTION)
-        metareasoning_env.render()
+        obs, r, is_episode_done, info = metareasoning_env.step(0)
+        # metareasoning_env.render()
 
         # print(obs)
         # print(info)
@@ -43,7 +42,8 @@ def main():
         utilities.append(utility)
         qualities_ub.append(info['q_ub'] * metareasoning_env.alpha)
 
-        print('steps', steps, 't', time, 'q', quality, 'u', utility)
+        print('steps', steps, 't', time, 'q',
+              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'])
 
         if is_episode_done:
             break

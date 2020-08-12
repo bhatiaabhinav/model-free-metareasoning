@@ -1,3 +1,4 @@
+import logging
 import sys
 import time
 from typing import List
@@ -9,9 +10,10 @@ from MFMR.algos.search_problem import SearchProblem
 
 
 class TSPProblem(SearchProblem):
-    def __init__(self, N):
+    def __init__(self, N_options):
         super().__init__()
-        self.N = N
+        self.N_options = N_options
+        self.N = self.random.choice(self.N_options)
         self.instance = None
         self.grid_distances = None
         self.start_state = None
@@ -44,7 +46,9 @@ class TSPProblem(SearchProblem):
         return grid_distances
 
     def reset(self):
-        '''Add N cities of the form (x, y) to instance where each city is at least a distance of epsilon from each other'''
+        '''Add N (=chosen at random from N_options) random cities of the form (x, y) to instance where each city is at least a distance of epsilon from each other'''
+        self.N = self.random.choice(self.N_options)
+        logging.getLogger(__name__).info(f'TSP N = {self.N}')
         instance = []
         while (len(instance) < self.N):
             x_cord = self.random.uniform(0, 1)
@@ -57,6 +61,9 @@ class TSPProblem(SearchProblem):
         self.start_state = [0]
         self.instance = instance
         self.grid_distances = self.calculate_grid_distances()
+        self.info = {
+            'tsp_n': self.N
+        }
 
     def get_children_nodes(self, parent):
         return super().get_children_nodes(parent)

@@ -7,6 +7,7 @@ class SearchProblem:
     def __init__(self):
         self.start_state = None
         self.random = np.random.RandomState()
+        self.info = {}
 
     def seed(self, seed):
         self.random.seed(seed)
