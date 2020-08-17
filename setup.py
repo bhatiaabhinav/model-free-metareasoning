@@ -13,12 +13,12 @@ def read(fname):
 
 setup(
     name="Model-Free-Metareasoning",
-    version="0.5.0a",
+    version="0.9.0",
     author="Justin Svegliato, Abhinav Bhatia",
     author_email="justin.svegliato@gmail.com, bhatiaabhinav93@gmail.com",
     description=("Model Free Metareasoning Experiments"),
     keywords="Metareasoning, Planning, Reinforcement Learning",
-    url="https://github.com/justinsvegliato/model-free-metareasoning",
+    url="https://github.com/bhatiaabhinav/model-free-metareasoning",
     packages=['MFMR'],
     long_description=read('README.md'),
     python_requires='>=3.6',

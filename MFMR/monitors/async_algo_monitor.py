@@ -79,6 +79,7 @@ class AsyncAlgoMonitor(gym.Env):
         self.render_q_ubs = []
         while not self.run_process.is_alive():
             time.sleep(0.001)
+        self.last_step_at = time.time()
         return self.get_obs()
 
     def terminate_process(self):
@@ -131,16 +132,16 @@ class AsyncAlgoMonitor(gym.Env):
                 info['graceful_exit'] = int(self.terminate_process())
             else:
                 self.algo.set_action(action)
-                time.sleep(self.monitoring_interval)
+                overhead = time.time() - self.last_step_at
+                time.sleep(max(self.monitoring_interval - overhead, 0))
 
-        info['solution_quality'] = self.algo.get_solution_quality()
-        info['time'] = self.algo.get_time()
         self.cur_utility = self.get_cur_utility()
         info['utility'] = self.cur_utility
         info.update(self.algo.get_info())
 
         reward = self.cur_utility - self.prev_utility
 
+        self.last_step_at = time.time()
         return self.get_obs(), reward, done, info
 
     def get_obs(self):

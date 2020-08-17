@@ -23,6 +23,10 @@ class TSPProblem(SearchProblem):
     def seed(self, seed):
         super().seed(seed)
 
+    def get_obs(self):
+        return [self.N / max(self.N_options)]
+        # return []
+
     def check_conflict(self, temp_instance, node):
         # print (node[0],node[1])
         # print (temp_instance)

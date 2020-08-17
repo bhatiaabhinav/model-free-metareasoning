@@ -45,7 +45,6 @@ def update_mean_std(mean, std, n, x, remove=False):
         = E[X^2] - (E[X])^2
     """
 
-    mask = 2 * int(not remove) - 1
     new_mean, new_n = update_mean(mean, n, x, remove=remove)
     if new_n == 0:
         return 0, 0, 0

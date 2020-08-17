@@ -122,7 +122,7 @@ for w in np.arange(1, 6.1, 0.5):
             register(f'A{w}Astar-{n}tsp-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
                      kwargs={
                          'alpha': 200,
-                         'beta_options': [beta - 0.1, beta, beta + 0.1],
+                         'beta_options': [max(beta - 0.1, 0), beta, beta + 0.1],
                          'monitoring_interval': 1 / 10,
                          'observe_beta': True,
                          'algo_cls': AAstar,
@@ -133,6 +133,6 @@ for w in np.arange(1, 6.1, 0.5):
                          'adjust_weight': True,
                          'observe_ub': True,
                          'search_problem_cls': TSPProblem,
-                         'N_options': [n-5, n, n+5]
+                         'N_options': [max(2, n-5), n, n + 5]
                      }
                      )

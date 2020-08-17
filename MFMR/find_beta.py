@@ -1,3 +1,4 @@
+import os
 import random
 
 import gym
@@ -43,7 +44,7 @@ def main():
         qualities_ub.append(info['q_ub'] * metareasoning_env.alpha)
 
         print('steps', steps, 't', time, 'q',
-              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'])
+              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'], 'q_ub', info['q_ub'])
 
         if is_episode_done:
             break
@@ -51,7 +52,7 @@ def main():
     metareasoning_env.close()
 
     plt.figure(figsize=(7, 3))
-    plt.rcParams["font.family"] = "Times New Roman"
+    # plt.rcParams["font.family"] = "Times New Roman"
     plt.rcParams["font.size"] = 14
     plt.rcParams["grid.linestyle"] = "-"
     plt.xlabel("Time")
@@ -63,6 +64,7 @@ def main():
     # axis.set_xlim([0, 2 * utilities.index(max(utilities))])
     # axis.set_ylim([utilities[0], 1.05 * max(utilities)])
 
+    os.makedirs('output', exist_ok=True)
     plt.plot(times, utilities, color="r")
     plt.plot(times, qualities_ub, color="g")
     plt.tight_layout()

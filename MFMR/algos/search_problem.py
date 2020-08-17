@@ -2,6 +2,8 @@ import queue
 
 import numpy as np
 
+from MFMR.utils import update_mean, update_mean_std
+
 
 class SearchProblem:
     def __init__(self):
@@ -11,6 +13,9 @@ class SearchProblem:
 
     def seed(self, seed):
         self.random.seed(seed)
+
+    def get_obs(self):
+        return []
 
     def reset(self):
         raise NotImplementedError()
@@ -54,42 +59,42 @@ class Node:
         return self.parent.get_solution() + [self.action]
 
 
-class OpenList(object):
-    def __init__(self):
-        self.items = []
-        self.cache = {}
+# class OpenList(object):
+#     def __init__(self):
+#         self.items = []
+#         self.cache = {}
 
-    def add(self, node, value):
-        self.items.append((value, node))
-        self.items.sort(key=lambda item: item[0])
+#     def add(self, node, value):
+#         self.items.append((value, node))
+#         self.items.sort(key=lambda item: item[0])
 
-        node_key = get_key(node.state)
-        self.cache[node_key] = node
+#         node_key = get_key(node.state)
+#         self.cache[node_key] = node
 
-    def remove(self):
-        return self.items.pop(0)[1]
+#     def remove(self):
+#         return self.items.pop(0)[1]
 
-    def __len__(self):
-        return len(self.items)
+#     def __len__(self):
+#         return len(self.items)
 
-    def __contains__(self, node):
-        node_key = get_key(node.state)
-        return node_key in self.cache
+#     def __contains__(self, node):
+#         node_key = get_key(node.state)
+#         return node_key in self.cache
 
-    def __getitem__(self, node):
-        node_key = get_key(node.state)
-        return self.cache[node_key]
+#     def __getitem__(self, node):
+#         node_key = get_key(node.state)
+#         return self.cache[node_key]
 
-    def __delitem__(self, new_node):
-        new_node_key = get_key(new_node.state)
+#     def __delitem__(self, new_node):
+#         new_node_key = get_key(new_node.state)
 
-        for i, (_, node) in enumerate(self.items):
-            node_key = get_key(node.state)
+#         for i, (_, node) in enumerate(self.items):
+#             node_key = get_key(node.state)
 
-            if node_key == new_node_key:
-                self.items.pop(i)
+#             if node_key == new_node_key:
+#                 self.items.pop(i)
 
-        del self.cache[new_node_key]
+#         del self.cache[new_node_key]
 
 
 class PriorityDict:
@@ -105,79 +110,118 @@ class PriorityDict:
         '''assign a unique id to every value to break ties'''
         self._counter = 0
         self._increment = 1 if tie_breaker == 'FIFO' else -1
+        self.mean = 0
+        self.std = 0
+        self.n = 0
 
     def add(self, key, value, priority):
         '''Adds a new key-value pair with given priority'''
         assert key not in self._ke_map, "Key already present"
-        entry = [priority, self._counter, value]
+        entry_id = self._counter
         self._counter += self._increment
+        entry = [priority, entry_id, value]
         self._pq.put(entry)
         self._ke_map[key] = entry
-        self._ek_map[entry[1]] = key
+        self._ek_map[entry_id] = key
+        # self.mean, self.n = update_mean(self.mean, self.n, priority)
+        self.mean, self.std, self.n = update_mean_std(
+            self.mean, self.std, self.n, priority)
+
+    @property
+    def frac_nodes(self):
+        return self.n / (abs(self._counter) + 1)
+
+    def mark_as_deleted(self, entry):
+        entry[-1] = self.DELETED_VALUE
+
+    def is_deleted(self, entry):
+        return entry[-1] == self.DELETED_VALUE
 
     def pop(self):
         '''retrieve lowest priority entry and remove it. Returns (key, value, priority) tuple'''
         while not self._pq.empty():
             # e_zero = self.peek()
             entry = self._pq.get()
-            if entry[-1] == self.DELETED_VALUE:
+            priority, entry_id, value = entry
+            if self.is_deleted(entry):
                 # automatically popped. No housekeeping needed in other data structs.
-                assert entry[1] not in self._ek_map, "A deleted entry found in hashmap"
+                assert entry_id not in self._ek_map, "A deleted entry found in hashmap"
                 continue
             else:
-                key = self._ek_map[entry[1]]
+                key = self._ek_map[entry_id]
                 del self._ke_map[key]
-                del self._ek_map[entry[1]]
-                # assert e_zero == (key, entry[-1], entry[0])
-                return key, entry[-1], entry[0]
+                del self._ek_map[entry_id]
+                # assert e_zero == (key, value, priority)
+                # self.mean, self.n = update_mean(
+                #     self.mean, self.n, priority, remove=True)
+                self.mean, self.std, self.n = update_mean_std(
+                    self.mean, self.std, self.n, priority, remove=True)
+                return key, value, priority
         raise KeyError('The queue is empty')
 
     def peek(self):
         '''peek lowest priority entry without removing it. Returns (key, value, priority) tuple'''
         while not self._pq.empty():
             entry = self._pq.get()
-            if entry[-1] == self.DELETED_VALUE:
+            priority, entry_id, value = entry
+            if self.is_deleted(entry):
                 # automatically popped. No housekeeping needed in other data structs.
-                assert entry[1] not in self._ek_map, "A deleted entry found in hashmap"
+                assert entry_id not in self._ek_map, "A deleted entry found in hashmap"
                 continue
             else:
                 self._pq.put(entry)  # add it back
-                key = self._ek_map[entry[1]]
-                return key, entry[-1], entry[0]
+                key = self._ek_map[entry_id]
+                return key, value, priority
         raise KeyError('The queue is empty')
 
     def get(self, key, default=None):
         '''retrieve an entry (value, priority) based on key. Returns `default` if key not found'''
         if key in self._ke_map:
             entry = self._ke_map[key]
-            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
-            return entry[-1], entry[0]
+            priority, entry_id, value = entry
+            assert not self.is_deleted(
+                entry), "How did this happen. Item deleted but present in hashmap"
+            return value, priority
         else:
             return default
 
     def __getitem__(self, key):
         '''retrieve an entry (value, priority) based on key. Raises KeyError if key not present'''
         entry = self._ke_map[key]
-        assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
-        return entry[-1], entry[0]
+        priority, entry_id, value = entry
+        assert not self.is_deleted(
+            entry), "How did this happen. Item deleted but present in hashmap"
+        return value, priority
 
     def delete(self, key):
         '''deletes an entry based on key. Does nothing if key not found.'''
         entry = self._ke_map.get(key)
         if entry is not None:
-            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+            priority, entry_id, value = entry
+            assert not self.is_deleted(
+                entry), "How did this happen. Item deleted but present in hashmap"
             del self._ke_map[key]
-            del self._ek_map[entry[1]]
-            entry[-1] = self.DELETED_VALUE
+            del self._ek_map[entry_id]
+            self.mark_as_deleted(entry)
+            # self.mean, self.n = update_mean(
+            #     self.mean, self.n, priority, remove=True)
+            self.mean, self.std, self.n = update_mean_std(
+                self.mean, self.std, self.n, priority, remove=True)
 
     def __delitem__(self, key):
         '''deletes an entry based on key. Raises Keyerror if key not present'''
         entry = self._ke_map[key]
+        priority, entry_id, value = entry
         if entry is not None:
-            assert entry[-1] != self.DELETED_VALUE, "How did this happen. Item deleted but present in hashmap"
+            assert not self.is_deleted(
+                entry), "How did this happen. Item deleted but present in hashmap"
             del self._ke_map[key]
-            del self._ek_map[entry[1]]
-            entry[-1] = self.DELETED_VALUE
+            del self._ek_map[entry_id]
+            self.mark_as_deleted(entry)
+            # self.mean, self.n = update_mean(
+            #     self.mean, self.n, priority, remove=True)
+            self.mean, self.std, self.n = update_mean_std(
+                self.mean, self.std, self.n, priority, remove=True)
 
     def __contains__(self, key):
         '''checks if there is an entry with given key'''
