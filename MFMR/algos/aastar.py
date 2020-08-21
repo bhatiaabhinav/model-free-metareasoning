@@ -1,7 +1,4 @@
-# import itertools
-# import os
-# import re
-# import sys
+
 import logging
 import time as tm
 from logging import setLogRecordFactory
@@ -11,7 +8,6 @@ import gym
 import numpy as np
 import psutil
 
-from MFMR import utils
 from MFMR.algos.search_problem import Node, PriorityDict, SearchProblem
 from MFMR.async_algo import AsyncAlgo
 from MFMR.utils import update_mean_std_corr
@@ -51,6 +47,8 @@ class MultiWeightOpenLists:
                 f'w_init={w} is not valid. It should be in the space created by other arguments')
         self.w_index = w_indexes[0]
         self.open_lists = [PriorityDict(tie_breaker='LIFO') for w in self.ws]
+        # [g mean, h mean, g std, h std, corr, n]
+        self.stats = [0, 0, 0, 0, 0, 0]
 
     @property
     def w(self):
@@ -71,28 +69,30 @@ class MultiWeightOpenLists:
     def pop(self):
         '''Retrives and delete the node with the least f' value from the open list with current w.
         Deletes the node from all the other open lists'''
-        key, node, f = self.open_lists[self.w_index].pop()
+        key, (node, g, h), f = self.open_lists[self.w_index].pop()
         for i, w in enumerate(self.ws):
             if not i == self.w_index:
                 del self.open_lists[i][key]
+        self.stats = update_mean_std_corr(*self.stats, g, h, remove=True)
         return key, node
 
     def peek(self, w_index):
-        '''Peeks the node with the least f' value from the open list with the given w_index. Return key, node, value'''
+        """Peeks the node with the least f' value from the open list with the given w_index. Return key, (node, g, h), f'"""
         return self.open_lists[w_index].peek()
 
     def delete(self, key):
         '''deletes the node with with given key from all the open lists.
         Does nothing if the key is not present
         '''
-        for i, w in enumerate(self.ws):
-            self.open_lists[i].delete(key)
+        if key in self:
+            del self[key]
 
     def add(self, key, node, g, h):
         '''Adds a key-node pair to each open list with f' priority calculated acc to respective weights'''
         for i, w in enumerate(self.ws):
             f = g + w * h
-            self.open_lists[i].add(key, node, f)
+            self.open_lists[i].add(key, (node, g, h), f)
+        self.stats = update_mean_std_corr(*self.stats, g, h)
 
     def increment_w(self):
         '''Attempts to increment the current weight by w_interval, as long as it does not violate w_max'''
@@ -120,8 +120,10 @@ class MultiWeightOpenLists:
         return key in self.open_lists[self.w_index]
 
     def __delitem__(self, key):
+        (node, g, h), f = self.open_lists[0][key]
         for i, w in enumerate(self.ws):
             del self.open_lists[i][key]
+        self.stats = update_mean_std_corr(*self.stats, g, h, remove=True)
 
     def __len__(self):
         return len(self.open_lists[self.w_index])
@@ -161,7 +163,7 @@ class AAstar(AsyncAlgo):
 
     @property
     def cost_lb(self):
-        return self.mem['cost_lbs'][0]
+        return self.mem['cost_lb']
 
     @property
     def cost_ub(self):
@@ -179,6 +181,15 @@ class AAstar(AsyncAlgo):
     def n_solutions(self):
         return self.mem['n_solutions']
 
+    def update_stats(self, open_lists: MultiWeightOpenLists):
+        best_key, (best_node, best_g, best_h), best_f = open_lists.peek(0)
+        assert best_f == best_g + best_h
+        self.mem['cost_lb'] = best_f
+        self.mem['best_g'] = best_g
+        self.mem['best_h'] = best_h
+        self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = open_lists.stats
+        self.mem['frac_nodes'] = open_lists.get_frac_nodes()
+
     def reset(self):
         logger.info('Resetting')
         self.mem.clear()
@@ -190,17 +201,12 @@ class AAstar(AsyncAlgo):
         self.start_heuristic = self.problem.heuristic(self.problem.start_state)
         self.start_time = tm.time()
         self.mem['interrupted'] = False
-        self.mem['cost_lbs'] = [self.start_heuristic for w in self.ws]
-        self.mem['means'] = [self.start_heuristic for w in self.ws]
-        self.mem['stds'] = [0 for w in self.ws]
+        self.mem['cost_lb'] = self.start_heuristic
+        self.mem['best_g'] = 0
+        self.mem['best_h'] = self.start_heuristic
+        self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'] = 0, self.start_heuristic, 0, 0, 0
         self.mem['frac_nodes'] = 0
         self.mem['n_solutions'] = 0
-
-    def update_stats(self, open_lists: MultiWeightOpenLists):
-        self.mem['cost_lbs'] = open_lists.get_lower_bound_stats()
-        self.mem['means'] = open_lists.get_mean_stats()
-        self.mem['stds'] = open_lists.get_std_stats()
-        self.mem['frac_nodes'] = open_lists.get_frac_nodes()
 
     def stop_condition(self):
         converged = self.cost_lb >= self.cost_ub
@@ -326,44 +332,43 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
-        '''weight, q, t, sys_usage, frac_open_nodes, q upper bounds for each weight, (inv of) mean f for each weight, std of f for each weight, search prob obs'''
-        if self.observe_ub:
-            return gym.spaces.Box(low=np.array([1.0, 0.0, 0.0, 0.0, 0.0] + [0.0]*3*len(self.ws) + [0.0]*len(self.problem.get_obs())), high=np.array([self.w_max, 1.0, self.t_max, 1.0, 1.0] + [1.0]*3*len(self.ws) + [1.0]*len(self.problem.get_obs())), dtype=np.float32)
-        else:
-            '''weight, quality, time, frac_nodes, search prob n'''
-            return gym.spaces.Box(low=np.array([1.0, 0.0, 0.0, 0.0, 0.0] + [0.0]*len(self.problem.get_obs())), high=np.array([self.w_max, 1.0, self.t_max, 1.0, 1.0] + [1.0]*len(self.problem.get_obs())), dtype=np.float32)
+        '''weight, c, t, sys_usage, frac_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
+        return gym.spaces.Box(low=np.array([0.0] * 12 + [0.0]*len(self.problem.get_obs())), high=np.array([0.0] * 12 + [.0]*len(self.problem.get_obs())), dtype=np.float32)
 
     def get_obs(self):
-        # TODO: Incorporate statistics of closed set & open list.
-        time = (tm.time() - self.start_time) / self.t_max
-        quality = self.start_heuristic / self.cost
         w = (self.w - self.w_min) / (self.w_max - self.w_min)
-        basic_obs = np.asarray(
-            (w, quality, time, psutil.cpu_percent(), self.frac_open_nodes), dtype=np.float32)
-        if self.observe_ub:
-            q_ubs = np.minimum(
-                self.start_heuristic / (np.asarray(self.mem['cost_lbs'], dtype=np.float32) + 1e-6), 10)
-            mean_ubs = np.minimum(
-                self.start_heuristic / (np.asarray(self.mem['means'], dtype=np.float32) + 1e-6), 10)
-            range_f = self.cost_ub - self.cost_lb
-            std_ubs = np.minimum(
-                (np.asarray(self.mem['stds'], dtype=np.float32) + 1e-6) / range_f, 10)
-            more_obs = np.concatenate((basic_obs, q_ubs, mean_ubs, std_ubs))
-        else:
-            more_obs = basic_obs
-        all_obs = np.concatenate((more_obs, np.asarray(
-            self.problem.get_obs(), dtype=np.float32)))
-        return all_obs
+        q = (self.start_heuristic + 1) / (self.cost + 1)
+        t = self.get_time() / self.t_max
+        cpu = psutil.cpu_percent() / 100
+        n = self.frac_open_nodes
+        best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
+        best_h = (self.start_heuristic + 1) / (self.mem['best_h'] + 1)
+        mean_g = (self.start_heuristic + 1) / (self.mem['mean_g'] + 1)
+        mean_h = (self.start_heuristic + 1) / (self.mem['mean_h'] + 1)
+        std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
+        std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
+        corr_gh = self.mem['corr_gh']
+        prob_obs = self.problem.get_obs()
+
+        return np.asarray([w, q, t, cpu, n, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh] + list(prob_obs), dtype=np.float32)
 
     def get_info(self):
-        q_ub = min(self.start_heuristic /
-                   (self.cost_lb + 1e-6), 10)
-        inv_mean_f = min(self.start_heuristic /
-                         (self.mem['means'][0] + 1e-6), 10)
-        range_f = self.cost_ub - self.cost_lb
-        std = self.mem['stds'][0] / (range_f + 1e-6)
-        info = {'solution_quality': self.get_solution_quality(), 'time': self.get_time(), 'w': self.w, 'q_ub': q_ub,
-                'n_solutions': self.n_solutions, 'inv_mean_f': inv_mean_f, 'std_f': std, 'frac_open_nodes': self.frac_open_nodes}
+        w = self.w
+        q = self.get_solution_quality()
+        t = self.get_time()
+        q_ub = self.start_heuristic / (self.cost_lb + 1e-6)
+        cpu = psutil.cpu_percent() / 100
+        n = self.frac_open_nodes
+        best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
+        best_h = (self.start_heuristic + 1) / (self.mem['best_h'] + 1)
+        mean_g = (self.start_heuristic + 1) / (self.mem['mean_g'] + 1)
+        mean_h = (self.start_heuristic + 1) / (self.mem['mean_h'] + 1)
+        std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
+        std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
+        corr_gh = self.mem['corr_gh']
+        prob_obs = self.problem.get_obs()
+        info = {'solution_quality': q, 'time': t, 'w': self.w, 'q_ub': q_ub, 'cpu': cpu,
+                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h,  'corr_gh': corr_gh, 'frac_open_nodes': n}
         info.update(self.problem.info)
         return info
 
@@ -372,20 +377,29 @@ class AAstar(AsyncAlgo):
 
     def get_action_meanings(self) -> List[str]:
         if self.adjust_weight:
-            return ['NOOP', 'INC_W', 'DEC_W']
+            return ['NOOP', 'INC_W_COURSE', 'INC_W', 'DEC_W_COURSE', 'DEC_W']
         else:
-            return ['NOOP', 'DUMMY_1', 'DUMMY_2']
+            return ['NOOP', 'DUMMY_1', 'DUMMY_2', 'DUMMY_3', 'DUMMY_4']
 
     def set_action(self, action):
         super().set_action(action)
         meaning = self.get_action_meanings()[action]
         w_idx = self.w_index
-        if meaning == 'INC_W':
+        if meaning == 'INC_W_COURSE':
+            w_idx += 4
+        elif meaning == 'INC_W':
             w_idx += 1
+        elif meaning == 'DEC_W_COURSE':
+            w_idx -= 4
         elif meaning == 'DEC_W':
             w_idx -= 1
-        else:
+        elif meaning == 'NOOP':
+            w_idx += 0
+        elif meaning.startswith('DUMMY'):
             pass
+        else:
+            assert False, "Unknown Action? Did I check action meanings properly?"
+
         self.mem['w_index'] = min(max(0, w_idx), len(self.ws) - 1)
 
     def get_solution_quality(self):

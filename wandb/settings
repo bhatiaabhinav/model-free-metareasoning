@@ -1,0 +1,5 @@
+[default]
+entity = abhinavbhatia
+project = A2.0Astar-20tsp-B0.3-v0
+base_url = https://api.wandb.ai
+

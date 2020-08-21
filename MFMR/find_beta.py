@@ -14,7 +14,6 @@ def main():
     random.seed(0)
     metareasoning_env = gym.make(
         'A2.0Astar-20tsp-B0.3-v0')  # type: AsyncAlgoMonitor
-    # metareasoning_env = TimeLimit(metareasoning_env, max_episode_steps=150)
 
     metareasoning_env.seed(0)
     metareasoning_env.reset()
@@ -44,7 +43,7 @@ def main():
         qualities_ub.append(info['q_ub'] * metareasoning_env.alpha)
 
         print('steps', steps, 't', time, 'q',
-              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'], 'q_ub', info['q_ub'])
+              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'], 'q_ub', info['q_ub'], 'cpu', info['cpu'])
 
         if is_episode_done:
             break
@@ -68,7 +67,7 @@ def main():
     plt.plot(times, utilities, color="r")
     plt.plot(times, qualities_ub, color="g")
     plt.tight_layout()
-    plt.savefig('output/beta_plot.png')
+    plt.savefig('output/example_episode.png')
 
 
 if __name__ == "__main__":
