@@ -92,8 +92,11 @@ def update_mean_std_corr(mean_x, mean_y, std_x, std_y, corr, n, x, y, remove=Fal
     mean_xy = cov + mean_x * mean_y
     new_mean_xy, new_n = update_mean(mean_xy, n, x * y, remove=remove)
     new_cov = new_mean_xy - new_mean_x * new_mean_y
-    new_corr = new_cov / (new_std_x * new_std_y)
-    if new_corr < -1.01 or new_corr > 1.01:
+    if abs(new_cov) < 1e-9:
+        new_corr = 0.0
+    else:
+        new_corr = new_cov / (new_std_x * new_std_y)
+    if abs(new_corr) > 1 + 1e-9:
         print('Precision error? Corr', new_corr)
     new_corr = min(max(-1, new_corr), 1)
     return new_mean_x, new_mean_y, new_std_x, new_std_y, new_corr, new_n
