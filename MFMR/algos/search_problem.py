@@ -110,9 +110,6 @@ class PriorityDict:
         '''assign a unique id to every value to break ties'''
         self._counter = 0
         self._increment = 1 if tie_breaker == 'FIFO' else -1
-        self.mean = 0
-        self.std = 0
-        self.n = 0
 
     def add(self, key, value, priority):
         '''Adds a new key-value pair with given priority'''
@@ -123,13 +120,10 @@ class PriorityDict:
         self._pq.put(entry)
         self._ke_map[key] = entry
         self._ek_map[entry_id] = key
-        # self.mean, self.n = update_mean(self.mean, self.n, priority)
-        self.mean, self.std, self.n = update_mean_std(
-            self.mean, self.std, self.n, priority)
 
     @property
     def frac_nodes(self):
-        return self.n / (abs(self._counter) + 1)
+        return len(self) / (abs(self._counter) + 1)
 
     def mark_as_deleted(self, entry):
         entry[-1] = self.DELETED_VALUE
@@ -152,10 +146,6 @@ class PriorityDict:
                 del self._ke_map[key]
                 del self._ek_map[entry_id]
                 # assert e_zero == (key, value, priority)
-                # self.mean, self.n = update_mean(
-                #     self.mean, self.n, priority, remove=True)
-                self.mean, self.std, self.n = update_mean_std(
-                    self.mean, self.std, self.n, priority, remove=True)
                 return key, value, priority
         raise KeyError('The queue is empty')
 
@@ -203,10 +193,6 @@ class PriorityDict:
             del self._ke_map[key]
             del self._ek_map[entry_id]
             self.mark_as_deleted(entry)
-            # self.mean, self.n = update_mean(
-            #     self.mean, self.n, priority, remove=True)
-            self.mean, self.std, self.n = update_mean_std(
-                self.mean, self.std, self.n, priority, remove=True)
 
     def __delitem__(self, key):
         '''deletes an entry based on key. Raises Keyerror if key not present'''
@@ -218,10 +204,6 @@ class PriorityDict:
             del self._ke_map[key]
             del self._ek_map[entry_id]
             self.mark_as_deleted(entry)
-            # self.mean, self.n = update_mean(
-            #     self.mean, self.n, priority, remove=True)
-            self.mean, self.std, self.n = update_mean_std(
-                self.mean, self.std, self.n, priority, remove=True)
 
     def __contains__(self, key):
         '''checks if there is an entry with given key'''
