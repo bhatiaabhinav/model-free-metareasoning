@@ -114,25 +114,27 @@ for w in np.arange(1, 6.1, 0.5):
                          )
 
 
-for w in np.arange(1, 6.1, 0.5):
-    w = np.round(w, 1)
-    for n in range(10, 51, 5):
-        for beta in np.arange(0, 1.1, 0.1):
-            beta = np.round(beta, 1)
-            register(f'A{w}Astar-{n}tsp-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
-                     kwargs={
-                         'alpha': 200,
-                         'beta_options': [max(beta - 0.1, 0), beta, beta + 0.1],
-                         'monitoring_interval': 1 / 10,
-                         'observe_beta': True,
-                         'algo_cls': AAstar,
-                         'weight': w,
-                         'weight_max': 6,
-                         'weight_interval': 0.25,
-                         'time_max': 15,
-                         'adjust_weight': True,
-                         'observe_ub': True,
-                         'search_problem_cls': TSPProblem,
-                         'N_options': [max(2, n-5), n, n + 5]
-                     }
-                     )
+for w in np.arange(1, 4.25, 0.25):
+    w = np.round(w, 2)
+    for n in range(10, 30, 5):
+        register(f'A{w}Astar-{n}tsp-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                 kwargs={
+                     'alpha': 1000,
+                     # 10s, 9s, 7s, 6s, 4s
+                     'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
+                     #  'beta_options': [0],
+                     'monitoring_interval': 1 / 4,
+                     'observe_beta': True,
+                     'algo_cls': AAstar,
+                     'weight': w,
+                     'weight_max': 4,
+                     'weight_interval': 0.25,
+                     'time_max': 10,
+                     'adjust_weight': True,
+                     'observe_ub': True,
+                     'search_problem_cls': TSPProblem,
+                     'N_options': [max(2, n-5), n, n + 5],
+                     #  'N_options': [10],
+                     'sparsity_range': [0, 0.75]
+                 }
+                 )

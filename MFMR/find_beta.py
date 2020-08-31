@@ -1,5 +1,6 @@
 import os
 import random
+import sys
 
 import gym
 import matplotlib.pyplot as plt
@@ -13,15 +14,17 @@ from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 def main():
     random.seed(0)
     metareasoning_env = gym.make(
-        'A2.0Astar-20tsp-B0.3-v0')  # type: AsyncAlgoMonitor
+        'A3.0Astar-20tsp-v0')  # type: AsyncAlgoMonitor
 
-    metareasoning_env.seed(0)
+    metareasoning_env.seed(int(sys.argv[1]))
     metareasoning_env.reset()
-    quality = metareasoning_env.algo.get_solution_quality()
+    alpha = metareasoning_env.alpha
+    scale = 10
+    quality = metareasoning_env.algo.get_solution_quality() * scale
     qualities = [quality]
     qualities_ub = [np.inf]
     times = [0]
-    utility = metareasoning_env.get_cur_utility()
+    utility = metareasoning_env.get_cur_utility() * scale / alpha
     utilities = [utility]
 
     steps = 0
@@ -36,18 +39,20 @@ def main():
         steps += 1
         time = metareasoning_env.get_time()
         times.append(time)
-        quality = metareasoning_env.get_solution_quality()
+        quality = metareasoning_env.get_solution_quality() * scale
         qualities.append(quality)
-        utility = metareasoning_env.get_cur_utility()
+        utility = metareasoning_env.get_cur_utility() * scale / alpha
         utilities.append(utility)
-        qualities_ub.append(info['q_ub'] * metareasoning_env.alpha)
+        q_ub = info['q_ub'] * scale
+        qualities_ub.append(q_ub)
 
         print('steps', steps, 't', time, 'q',
-              quality, 'u', utility, 'w', info['w'], 'n', info['tsp_n'], 'b', info['beta'], 'q_ub', info['q_ub'], 'cpu', info['cpu'])
+              quality, 'u', utility, 'w', info['w'], 'av_w', info['w_av'], 'n', info['tsp_n'], 'sparsity', info['tsp_sparsity'], 'b', info['beta'], 'q_ub', q_ub, 'cpu', info['cpu'])
 
         if is_episode_done:
             break
 
+    print('Max Utility', max(utilities))
     metareasoning_env.close()
 
     plt.figure(figsize=(7, 3))
