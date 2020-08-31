@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np  # noqa
 from gym.envs.classic_control.rendering import SimpleImageViewer
 
+from MFMR.algos.aastar import logger
 from MFMR.async_algo import AsyncAlgo
 
 # mpl.rcParams['text.antialiased'] = False
@@ -20,7 +21,7 @@ plt.setp([ax.get_xticklines() + ax.get_yticklines() +
 
 
 class AsyncAlgoMonitor(gym.Env):
-    metadata = {'render.modes': ['human', 'rgb_array']}
+    metadata = {'render.modes': ['human', 'rgb_array', 'save_png']}
     STOP_ACTION = None
     CONTINUE_ACTION = 0
 
@@ -59,12 +60,14 @@ class AsyncAlgoMonitor(gym.Env):
         assert len(self.action_meanings) == self.action_space.n
 
         self.viewer = None
+        self.episode_id = -1
 
     def get_action_meanings(self):
         return self.action_meanings
 
     def reset(self):
         self.logger.info('Resetting env')
+        self.episode_id += 1
         self.terminate_process()
 
         self.beta = self.random.choice(self.beta_options)
@@ -77,8 +80,10 @@ class AsyncAlgoMonitor(gym.Env):
         self.render_utils = []
         self.render_ws = []
         self.render_q_ubs = []
+        self.logger.info('Waiting for process alive')
         while not self.run_process.is_alive():
             time.sleep(0.001)
+        self.logger.info('process now alive')
         self.last_step_at = time.time()
         return self.get_obs()
 
@@ -108,6 +113,7 @@ class AsyncAlgoMonitor(gym.Env):
         0 = STOP
         1 = CONTINUE
         '''
+        logger.debug('stepping')
         assert self.action_space.contains(
             action), f"Invalid action. Action space is {self.action_space}"
 
@@ -137,11 +143,53 @@ class AsyncAlgoMonitor(gym.Env):
 
         self.cur_utility = self.get_cur_utility()
         info['utility'] = self.cur_utility
+        # info['image'] = self.render(mode='rgb_array')
         info.update(self.algo.get_info())
 
         reward = self.cur_utility - self.prev_utility
+        reward = reward * 10 / self.alpha  # scale reward to make it easier to learn
+
+        self.render_ts.append(self.get_time())
+        self.render_qs.append(10 * self.get_solution_quality())
+        self.render_utils.append(self.get_cur_utility() * 10 / self.alpha)
+        self.render_ws.append(info['w'])
+        self.render_q_ubs.append(10 * info['q_ub'])
+        info['w_av'] = np.mean(self.render_ws)
+        info['w_std'] = np.std(self.render_ws)
 
         self.last_step_at = time.time()
+
+        if (self.episode_id + 1) % 50 == 0:
+            if done:
+                x = self.render_ts
+                plt.clf()
+                plt.plot(x, self.render_qs, label='10 * q', color='blue')
+                plt.plot(x, self.render_utils,
+                         label=f'10 * util/α', color='red')
+                plt.plot(x, self.render_ws, label='w', color='brown')
+                plt.plot(x, self.render_q_ubs,
+                         label='10 * q_ub', color='green')
+                plt.legend()
+                plt.grid()
+                # plt.tight_layout()
+                fig.canvas.draw()
+                data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8)
+                img = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                # from RL.__main__ import logdir
+                # import os
+                # path = os.path.join(
+                #     logdir, 'images', f'ep{self.episode_id}.png')
+                # plt.savefig(path)
+                time_costs = {
+                    0.3: 'None',
+                    0.4: 'Low',
+                    0.5: 'Medium',
+                    0.6: 'High',
+                    0.7: 'V High'
+                }
+                import wandb
+                wandb.log({"Plot": wandb.Image(
+                    img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]}, TSP N = {info["tsp_n"]}, Sparsity={np.round(info["tsp_sparsity"], 1)})')})
         return self.get_obs(), reward, done, info
 
     def get_obs(self):
@@ -169,34 +217,40 @@ class AsyncAlgoMonitor(gym.Env):
 
     def render(self, mode='human'):
         '''GYM API. Some Nice Visualization'''
+        # print('Creating visualization')
         info = self.algo.get_info()
         # self.render_infos.append(info)
         self.render_ts.append(self.get_time())
-        self.render_qs.append(self.alpha * self.get_solution_quality())
-        self.render_utils.append(self.get_cur_utility())
+        self.render_qs.append(10 * self.get_solution_quality())
+        self.render_utils.append(self.get_cur_utility() * 10 / self.alpha)
         x = self.render_ts
         plt.clf()
-        plt.plot(x, self.render_qs, label='q', color='blue')
-        plt.plot(x, self.render_utils, label='util', color='red')
+        plt.plot(x, self.render_qs, label='10 * q', color='blue')
+        plt.plot(x, self.render_utils, label=f'10 * util/α', color='red')
         if 'w' in info:
-            self.render_ws.append(10 * info['w'])
-            plt.plot(x, self.render_ws, label='10*w', color='brown')
+            self.render_ws.append(info['w'])
+            plt.plot(x, self.render_ws, label='w', color='brown')
         if 'q_ub' in info:
-            self.render_q_ubs.append(self.alpha * info['q_ub'])
-            plt.plot(x, self.render_q_ubs, label='q ub', color='green')
+            self.render_q_ubs.append(10 * info['q_ub'])
+            plt.plot(x, self.render_q_ubs, label='10 * q_ub', color='green')
         plt.legend()
         plt.grid()
         # plt.tight_layout()
         fig.canvas.draw()
+        if mode == 'save_png':
+            plt.savefig(f'ep{self.episode_id}.png')
+            return
         data = np.fromstring(fig.canvas.tostring_rgb(),
                              dtype=np.uint8)
         img = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
         if mode == 'rgb_array':
+            # print('created')
             return img
         elif mode == 'human':
             if self.viewer is None:
                 self.viewer = SimpleImageViewer()
             # X = np.array(fig.canvas.renderer.buffer_rgba())
+            # print('created')
             self.viewer.imshow(img)
         else:
             raise ValueError(f'Render mode {mode} not supported')
