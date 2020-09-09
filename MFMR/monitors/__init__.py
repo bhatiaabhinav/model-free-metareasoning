@@ -123,7 +123,7 @@ for w in np.arange(1, 4.25, 0.25):
                      # 10s, 9s, 7s, 6s, 4s
                      'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
                      #  'beta_options': [0],
-                     'monitoring_interval': 1 / 4,
+                     'monitoring_interval': 1 / 5,
                      'observe_beta': True,
                      'algo_cls': AAstar,
                      'weight': w,
