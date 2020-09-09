@@ -153,13 +153,28 @@ class AsyncAlgoMonitor(gym.Env):
         self.render_qs.append(10 * self.get_solution_quality())
         self.render_utils.append(self.get_cur_utility() * 10 / self.alpha)
         self.render_ws.append(info['w'])
+        ws = self.render_ws
         self.render_q_ubs.append(10 * info['q_ub'])
-        info['w_av'] = np.mean(self.render_ws)
-        info['w_std'] = np.std(self.render_ws)
+        info['w_av'] = np.mean(ws)
+        info['w_std'] = np.std(ws)
+        ep_len = len(ws)
+        part_lenths = np.array([ep_len // 4] * 4)
+        remainder = ep_len % 4
+        if remainder > 0:
+            part_lenths[0:remainder] = part_lenths[0:remainder] + 1
+        if ep_len >= 4:
+            # print(part_lenths)
+            info['w1'] = np.mean(ws[0:part_lenths[0]])
+            info['w2'] = np.mean(
+                ws[part_lenths[0]:part_lenths[0] + part_lenths[1]])
+            info['w3'] = np.mean(
+                ws[part_lenths[0] + part_lenths[1]:part_lenths[0] + part_lenths[1] + part_lenths[2]])
+            info['w4'] = np.mean(
+                ws[part_lenths[0] + part_lenths[1] + part_lenths[2]:])
 
         self.last_step_at = time.time()
 
-        if (self.episode_id + 1) % 50 == 0:
+        if (self.episode_id + 1) % 20 == 0:
             if done:
                 x = self.render_ts
                 plt.clf()
