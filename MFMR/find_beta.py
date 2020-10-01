@@ -14,7 +14,7 @@ from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 def main():
     random.seed(0)
     metareasoning_env = gym.make(
-        'A3.0Astar-20tsp-v0')  # type: AsyncAlgoMonitor
+        f'A{sys.argv[2]}Astar-25tsp-v0')  # type: AsyncAlgoMonitor
 
     metareasoning_env.seed(int(sys.argv[1]))
     metareasoning_env.reset()

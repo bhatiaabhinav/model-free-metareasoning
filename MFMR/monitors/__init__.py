@@ -114,27 +114,29 @@ for w in np.arange(1, 6.1, 0.5):
                          )
 
 
-for w in np.arange(1, 4.25, 0.25):
+for w in np.arange(1, 3.25, 0.1):
     w = np.round(w, 2)
-    for n in range(10, 30, 5):
+    for n in range(10, 45, 5):
         register(f'A{w}Astar-{n}tsp-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
                  kwargs={
                      'alpha': 1000,
                      # 10s, 9s, 7s, 6s, 4s
-                     'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
-                     #  'beta_options': [0],
+                     #  'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
+                     # "beta_options": [0],
+                     'beta_options': [0.0],
+                     'stop_action_available': False,
                      'monitoring_interval': 1 / 5,
                      'observe_beta': True,
                      'algo_cls': AAstar,
                      'weight': w,
-                     'weight_max': 4,
-                     'weight_interval': 0.25,
+                     'weight_max': 3,
+                     'weight_interval': 0.1,
                      'time_max': 10,
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': TSPProblem,
-                     'N_options': [max(2, n-5), n, n + 5],
+                     'N_range': [n-5, n + 5],
                      #  'N_options': [10],
-                     'sparsity_range': [0, 0.75]
+                     'sparsity_range': [0.0, 0.3]
                  }
                  )

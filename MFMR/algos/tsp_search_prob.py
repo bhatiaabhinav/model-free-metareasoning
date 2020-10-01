@@ -8,15 +8,18 @@ import numpy as np
 from matplotlib.pyplot import connect, disconnect, viridis
 from numpy.core.multiarray import can_cast
 
-from MFMR.algos.aastar import logger
 from MFMR.algos.search_problem import SearchProblem
+
+logger = logging.getLogger(__name__)
+ldebug = logger.isEnabledFor(logging.DEBUG)
 
 
 class TSPProblem(SearchProblem):
-    def __init__(self, N_options, sparsity_range):
+    def __init__(self, N_range, sparsity_range):
         super().__init__()
-        self.N_options = N_options
-        self.N = self.random.choice(self.N_options)
+        self.N_range = N_range
+        self.N = self.N_range[0] + \
+            self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         self.instance = None
         self.distances = None
         self.start_state = None
@@ -29,21 +32,21 @@ class TSPProblem(SearchProblem):
         super().seed(seed)
 
     def get_obs(self):
-        return [self.N / max(self.N_options), self.sparsity]
+        return [self.N / self.N_range[1], self.sparsity]
         # return []
 
     def connect(self, distances, city1, city2, min_distance, max_distance):
         distance = min_distance + self.random.rand() * (max_distance - min_distance)
         distances[city1, city2] = distance
         distances[city2, city1] = distance
-        logger.info(f'{city1}---{distance}---{city2}')
+        ldebug and logger.debug(f'{city1}---{distance}---{city2}')
         # print(f'{city1}---{distance}---{city2}')
         return distances
 
     def isConnected(self, distances, city1, city2):
         return distances[city1, city2] < np.inf
 
-    def create_tsp(self, N, sparsity=0.5, min_distance=0.1, max_distance=1):
+    def create_tsp(self, N, sparsity=1, min_distance=1, max_distance=50):
         distances = np.ones((N, N)) * np.inf
         num_connections = 0
         for city in range(N):
@@ -93,7 +96,8 @@ class TSPProblem(SearchProblem):
     def reset(self):
         '''Add N (=chosen at random from N_options) random cities of the form (x, y) to instance where each city is at least a distance of epsilon from each other'''
         self.cache.clear()
-        self.N = self.random.choice(self.N_options)
+        self.N = self.N_range[0] + \
+            self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         # instance = []
         # while (len(instance) < self.N):
         #     x_cord = self.random.uniform(0, 1)
@@ -147,7 +151,7 @@ class TSPProblem(SearchProblem):
 
         if len(s) > 1:
             mst_del_cities = np.array(list(set(s[0:-1])))
-            logger.debug(f'mst del cities {mst_del_cities}')
+            ldebug and logger.debug(f'mst del cities {mst_del_cities}')
             unexplored_distances = np.delete(
                 unexplored_distances, mst_del_cities, 0)
             unexplored_distances = np.delete(
@@ -165,7 +169,7 @@ class TSPProblem(SearchProblem):
         # print(unexplored_distances)
         if len(mst_cities) > 0:
             p = Prims(len(mst_cities), unexplored_distances)
-            r = p.calculate_mst()
+            # r = p.calculate_mst()
             r2 = p.my_mst()
             # assert (r == np.inf and r2 == np.inf) or abs(
             # r - r2) < 0.0001, f"{r}, {r2}, {unexplored_distances}"
@@ -188,7 +192,7 @@ class TSPProblem(SearchProblem):
             can_visit = set(np.where(self.distances[s[-1]] < np.inf)[0])
             # can_visit = set(range(self.N))
             options = list(can_visit - visited)
-        logger.debug(f'options from city {s[-1]}={options}')
+        ldebug and logger.debug(f'options from city {s[-1]}={options}')
         return options
 
     def successor_fn(self, s, a):
@@ -322,5 +326,5 @@ class Prims:
         if total > 5:
             print(total)
         # print(f'MST = {self.cost}')
-        logger.debug(f'MST = {self.cost}')
+        ldebug and logger.debug(f'MST = {self.cost}')
         return self.cost

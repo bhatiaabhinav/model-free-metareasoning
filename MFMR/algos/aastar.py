@@ -1,4 +1,3 @@
-
 import logging
 import time as tm
 from typing import List
@@ -32,6 +31,7 @@ ITERATIONS = 100
 
 
 logger = logging.getLogger(__name__)
+ldebug = logger.isEnabledFor(logging.DEBUG)
 ROUND = 2
 
 
@@ -95,7 +95,7 @@ class MultiWeightOpenLists:
         for i, w in enumerate(self.ws):
             f = g + w * h
             self.open_lists[i].add(key, (node, g, h), f)
-        if f < np.inf:
+        if g + h < np.inf:
             self.stats = update_mean_std_corr(*self.stats, g, h)
 
     def increment_w(self):
@@ -214,7 +214,6 @@ class AAstar(AsyncAlgo):
         logger.info('Resetting')
         self.mem.clear()
         self.problem.reset()
-        self.n = self.problem
         self.mem['w_index'] = self.w_init_index
         self.mem['action'] = 0
         self.mem['cost'] = np.inf
@@ -235,13 +234,13 @@ class AAstar(AsyncAlgo):
         converged = self.cost_lb >= self.cost_ub
         if converged:
             self.mem['cost_lb'] = self.mem['cost']
-        logger.debug(
+        ldebug and logger.debug(
             f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
         # print(
         #     f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
         ans = converged or self.mem['interrupted'] or (
             tm.time() - self.start_time) > self.t_max
-        logger.debug(f'Stop={ans}')
+        ldebug and logger.debug(f'Stop={ans}')
         return ans
 
     def run(self):
@@ -303,6 +302,7 @@ class AAstar(AsyncAlgo):
                             # self.mem['solution'] = child_node.get_solution()
                             self.mem['cost'] = child_node_f
                             self.mem['n_solutions'] = self.mem['n_solutions'] + 1
+                            # print('solution, cost = ', child_node_f)
                         elif child_node_key in closed_set or child_node_key in open_lists:
                             '''okay.. we have seen this state before. This child is so unoriginal: a duplicate.'''
                             if path_costs[child_node_key] > child_node.path_cost:
@@ -370,6 +370,7 @@ class AAstar(AsyncAlgo):
         '''
 
         logger.info('Run done')
+        # print('finish')
 
     def interrupt(self):
         self.mem['interrupted'] = True
@@ -379,7 +380,7 @@ class AAstar(AsyncAlgo):
         return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0]*len(self.problem.get_obs())), high=np.array([1.0] * 13 + [0.0]*len(self.problem.get_obs())), dtype=np.float32)
 
     def get_obs(self):
-        logger.info('getting obs')
+        ldebug and logger.debug('getting obs')
         w = (self.w - self.w_min) / (self.w_max - self.w_min)
         q = (self.start_heuristic + 1) / (self.cost + 1)
         ub = (self.start_heuristic + 1) / (self.cost_lb + 1)
@@ -397,7 +398,7 @@ class AAstar(AsyncAlgo):
 
         obs = np.asarray([w, q, ub, t, cpu, n, best_g, best_h, mean_g, mean_h,
                           std_g, std_h, corr_gh] + list(prob_obs), dtype=np.float32)
-        logger.info('got obs')
+        ldebug and logger.debug('got obs')
         return obs
 
     def get_info(self):
@@ -438,11 +439,11 @@ class AAstar(AsyncAlgo):
         meaning = self.get_action_meanings()[action]
         w_idx = self.w_index
         if meaning == 'INC_W_COURSE':
-            w_idx += 4
+            w_idx += 5
         elif meaning == 'INC_W':
             w_idx += 1
         elif meaning == 'DEC_W_COURSE':
-            w_idx -= 4
+            w_idx -= 5
         elif meaning == 'DEC_W':
             w_idx -= 1
         elif meaning == 'NOOP':
@@ -471,3 +472,13 @@ class AAstar(AsyncAlgo):
 
     def close(self):
         super().close()
+
+
+if __name__ == '__main__':
+    from MFMR.algos.tsp_search_prob import TSPProblem
+    aastar = AAstar(2.0, 3.0, 0.1, 180, True, True, TSPProblem,
+
+                    N_range=[10,  10], sparsity_range=[0, 0.0])
+    aastar.seed(0)
+    aastar.reset()
+    aastar.run()

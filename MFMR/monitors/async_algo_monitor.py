@@ -1,5 +1,6 @@
 import logging
 import signal
+import sys
 import time
 from multiprocessing import Process
 
@@ -25,12 +26,13 @@ class AsyncAlgoMonitor(gym.Env):
     STOP_ACTION = None
     CONTINUE_ACTION = 0
 
-    def __init__(self, alpha, beta_options, monitoring_interval, observe_beta, algo_cls, *algo_args, **algo_kwargs):
+    def __init__(self, alpha, beta_options, stop_action_available, monitoring_interval, observe_beta, algo_cls, *algo_args, **algo_kwargs):
         super().__init__()
         self.logger = logging.getLogger(__name__)
         self.random = np.random.RandomState()
         self.alpha = alpha
         self.beta_options = beta_options
+        self.stop_action_available = stop_action_available
         self.beta = self.random.choice(self.beta_options)
         self.monitoring_interval = monitoring_interval
         self.observe_beta = observe_beta
@@ -52,10 +54,18 @@ class AsyncAlgoMonitor(gym.Env):
         # set action space
         algo_ac_space = self.algo.get_action_space()
         assert isinstance(algo_ac_space, gym.spaces.Discrete)
-        self.action_space = gym.spaces.Discrete(
-            algo_ac_space.n + 1)  # add stop as the last action
-        self.action_meanings = self.algo.get_action_meanings() + ['STOP']
-        self.STOP_ACTION = self.action_space.n - 1
+
+        if self.stop_action_available:
+            self.action_space = gym.spaces.Discrete(
+                algo_ac_space.n + 1)  # add stop as the last action
+            self.action_meanings = self.algo.get_action_meanings() + ['STOP']
+            # STOP_ACTION is last action:
+            self.STOP_ACTION = self.action_space.n - 1
+        else:
+            self.action_space = algo_ac_space
+            self.action_meanings = self.algo.get_action_meanings()
+            # STOP_ACTION not available in the action space:
+            self.STOP_ACTION = sys.maxsize
         assert self.action_meanings[0] == 'NOOP'
         assert len(self.action_meanings) == self.action_space.n
 
@@ -117,7 +127,7 @@ class AsyncAlgoMonitor(gym.Env):
         assert self.action_space.contains(
             action), f"Invalid action. Action space is {self.action_space}"
 
-        cont_decision = action < self.action_space.n - 1  # i.e. not 'STOP'
+        cont_decision = action < self.STOP_ACTION  # i.e. not 'STOP'
 
         done = False
         info = {'beta': self.beta, 'interrupted': 0, 'graceful_exit': 1}
@@ -174,7 +184,7 @@ class AsyncAlgoMonitor(gym.Env):
 
         self.last_step_at = time.time()
 
-        if (self.episode_id + 1) % 20 == 0:
+        if (self.episode_id + 1) % 1 == 0:
             if done:
                 x = self.render_ts
                 plt.clf()
@@ -196,7 +206,10 @@ class AsyncAlgoMonitor(gym.Env):
                 #     logdir, 'images', f'ep{self.episode_id}.png')
                 # plt.savefig(path)
                 time_costs = {
-                    0.3: 'None',
+                    0.0: 'None',
+                    0.1: 'Meh',
+                    0.2: 'VV Low',
+                    0.3: 'V Low',
                     0.4: 'Low',
                     0.5: 'Medium',
                     0.6: 'High',
