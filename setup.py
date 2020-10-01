@@ -13,9 +13,9 @@ def read(fname):
 
 setup(
     name="Model-Free-Metareasoning",
-    version="0.9.0",
+    version="1.0.0",
     author="Justin Svegliato, Abhinav Bhatia",
-    author_email="justin.svegliato@gmail.com, bhatiaabhinav93@gmail.com",
+    author_email="justin.svegliato@gmail.com, abhinav.bhatia.me@gmail.com",
     description=("Model Free Metareasoning Experiments"),
     keywords="Metareasoning, Planning, Reinforcement Learning",
     url="https://github.com/bhatiaabhinav/model-free-metareasoning",
@@ -23,11 +23,12 @@ setup(
     long_description=read('README.md'),
     python_requires='>=3.6',
     install_requires=[
-        'gym>=0.17.1',
+        'gym>=0.17.2',
         'matplotlib>=3.2.0',
-        'numpy>=1.18.1',
+        'numpy>=1.19.2',
         'pytest>=5.4.1',
-        'scipy>=1.4.1',
-        'RL-v2>=2.5.0b'
+        'scipy>=1.5.2',
+        'RL-v2>=3.0.0',
+        'wandb>=0.10.2'
     ]
 )
