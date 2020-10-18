@@ -215,9 +215,17 @@ class AsyncAlgoMonitor(gym.Env):
                     0.6: 'High',
                     0.7: 'V High'
                 }
-                import wandb
-                wandb.log({"Plot": wandb.Image(
-                    img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]}, TSP N = {info["tsp_n"]}, Sparsity={np.round(info["tsp_sparsity"], 1)})')})
+                if 'find_beta' in sys.argv[0]:
+                    # print('hello')
+                    pass
+                else:
+                    import wandb
+                    if 'tsp_n' in info:
+                        wandb.log({"Plot": wandb.Image(
+                            img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]}, TSP N = {info["tsp_n"]}, Sparsity={np.round(info["tsp_sparsity"], 1)})')})
+                    elif 'puzzle_n' in info:
+                        wandb.log({"Plot": wandb.Image(
+                            img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]}, Puzzle N = {info["puzzle_n"]}, Difficulty={np.round(info["puzzle_difficulty"], 1)})')})
         return self.get_obs(), reward, done, info
 
     def get_obs(self):

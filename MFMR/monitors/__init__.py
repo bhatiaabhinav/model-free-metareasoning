@@ -89,29 +89,28 @@ register('Tsp30Beta0-Cont-v0', entry_point='MFMR.monitors.async_algo_monitor:Asy
 })
 
 
-for w in np.arange(1, 6.1, 0.5):
-    w = np.round(w, 1)
+for w in np.arange(1, 3.25, 0.1):
+    w = np.round(w, 2)
     for n in range(1, 9):
-        for difficulty_string in ['easy', 'medium', 'hard']:
-            for beta in np.arange(0, 1.1, 0.1):
-                beta = np.round(beta, 1)
-                register(f'A{w}Astar-{n}puzzle-{difficulty_string}-B{beta}-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
-                         kwargs={
-                             'alpha': 200,
-                             'beta_options': [beta - 0.1, beta, beta + 0.1],
-                             'monitoring_interval': 1 / 10,
-                             'algo_cls': AAstar,
-                             'weight': w,
-                             'weight_max': 6,
-                             'weight_interval': 0.25,
-                             'time_max': 15,
-                             'adjust_weight': True,
-                             'observe_ub': True,
-                             'search_problem_cls': NPuzzle,
-                             'n': n,
-                             'difficulty_string': difficulty_string
-                         }
-                         )
+        register(f'A{w}Astar-{n}puzzle-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                 kwargs={
+                     'alpha': 1000,
+                     # 'beta_options': [beta - 0.1, beta, beta + 0.1],
+                     'beta_options': [0.0],
+                     'stop_action_available': False,
+                     'monitoring_interval': 1 / 5,
+                     'observe_beta': True,
+                     'algo_cls': AAstar,
+                     'weight': w,
+                     'weight_max': 3,
+                     'weight_interval': 0.1,
+                     'time_max': 10,
+                     'adjust_weight': True,
+                     'observe_ub': True,
+                     'search_problem_cls': NPuzzle,
+                     'N_range': [n, n + 1]
+                 }
+                 )
 
 
 for w in np.arange(1, 3.25, 0.1):
@@ -135,7 +134,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': TSPProblem,
-                     'N_range': [n-5, n + 5],
+                     'N_range': [n - 5, n + 5],
                      #  'N_options': [10],
                      'sparsity_range': [0.0, 0.3]
                  }

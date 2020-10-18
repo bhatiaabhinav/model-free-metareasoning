@@ -5,7 +5,6 @@ import sys
 import gym
 import matplotlib.pyplot as plt
 import numpy as np
-from gym.wrappers import TimeLimit
 
 import MFMR.monitors  # noqa
 from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
@@ -13,8 +12,9 @@ from MFMR.monitors.async_algo_monitor import AsyncAlgoMonitor
 
 def main():
     random.seed(0)
-    metareasoning_env = gym.make(
-        f'A{sys.argv[2]}Astar-25tsp-v0')  # type: AsyncAlgoMonitor
+    name = f'A{sys.argv[2]}Astar-4puzzle-v0'
+    # name = f'A{sys.argv[2]}Astar-25tsp-v0'
+    metareasoning_env = gym.make(name)  # type: AsyncAlgoMonitor
 
     metareasoning_env.seed(int(sys.argv[1]))
     metareasoning_env.reset()
@@ -46,8 +46,12 @@ def main():
         q_ub = info['q_ub'] * scale
         qualities_ub.append(q_ub)
 
-        print('steps', steps, 't', time, 'q',
-              quality, 'u', utility, 'w', info['w'], 'av_w', info['w_av'], 'n', info['tsp_n'], 'sparsity', info['tsp_sparsity'], 'b', info['beta'], 'q_ub', q_ub, 'cpu', info['cpu'])
+        if 'tsp' in name:
+            print('steps', steps, 't', time, 'q', quality, 'u', utility, 'w',
+                  info['w'], 'av_w', info['w_av'], 'n', info['tsp_n'], 'sparsity', info['tsp_sparsity'], 'b', info['beta'], 'q_ub', q_ub, 'cpu', info['cpu'])
+        elif 'puzzle' in name:
+            print('steps', steps, 't', time, 'q',
+                  quality, 'u', utility, 'w', info['w'], 'av_w', info['w_av'], 'n', info['puzzle_n'], 'diff', info['puzzle_difficulty'], 'b', info['beta'], 'q_ub', q_ub, 'cpu', info['cpu'])
 
         if is_episode_done:
             break

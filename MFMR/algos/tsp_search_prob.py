@@ -1,12 +1,7 @@
 import logging
-import sys
 import time
-from typing import List
 
-import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.pyplot import connect, disconnect, viridis
-from numpy.core.multiarray import can_cast
 
 from MFMR.algos.search_problem import SearchProblem
 
@@ -51,10 +46,10 @@ class TSPProblem(SearchProblem):
         num_connections = 0
         for city in range(N):
             distances[city, city] = 0
-        for city in range(N-1):
+        for city in range(N - 1):
             self.connect(distances, city, city + 1, min_distance, max_distance)
             num_connections += 1
-        self.connect(distances, N-1, 0, min_distance, max_distance)
+        self.connect(distances, N - 1, 0, min_distance, max_distance)
         num_connections += 1
         for city1 in range(N - 1):
             for city2 in range(city1 + 1, N):
@@ -114,7 +109,7 @@ class TSPProblem(SearchProblem):
             'tsp_n': self.N,
             'tsp_sparsity': self.sparsity
         }
-        logging.getLogger(__name__).info(
+        logger.info(
             f'TSP N = {self.N}, Sparsity = {self.sparsity}')
 
     def get_children_nodes(self, parent):
@@ -239,9 +234,6 @@ class Prims:
     def is_a_sequence(self):
         return np.all(np.sum(np.isfinite(self.grid_distances), axis=1) <= 3)
 
-    def is_a_sequence(self):
-        return np.all(np.sum(np.isfinite(self.grid_distances), axis=1) <= 3)
-
     def graph_is_disconnected(self):
         connected_to_0 = self.connected_to(0, self.grid_distances, set())
         # assert max(connected_to_0) < self.N
@@ -253,7 +245,7 @@ class Prims:
         visited_set.add(node_from)
         # print(node_from, adjacent_nodes)
         for node in self.adjacent_nodes(node_from):
-            if not node in visited_set:
+            if node not in visited_set:
                 self.connected_to(node, distances, visited_set)
         return visited_set
 
@@ -298,8 +290,8 @@ class Prims:
             self.cost = np.inf
         elif self.is_a_sequence():
             # print('yep')
-            distances = np.where(self.grid_distances ==
-                                 np.inf, 0, self.grid_distances)
+            distances = np.where(
+                self.grid_distances == np.inf, 0, self.grid_distances)
             # print(distances)
             self.cost = np.sum(distances) / 2
         else:
@@ -321,7 +313,7 @@ class Prims:
                         self.mst_parents[child] = node
                         self.mst_node_values[child] = self.grid_distances[node, child]
                 # print("MST node values after: ",self.mst_node_values,"\n\n")
-                #print("MST Parents: ", self.mst_parents)
+                # print("MST Parents: ", self.mst_parents)
         total = time.time() - start
         if total > 5:
             print(total)

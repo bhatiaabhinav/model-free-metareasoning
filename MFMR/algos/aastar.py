@@ -240,6 +240,8 @@ class AAstar(AsyncAlgo):
         #     f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
         ans = converged or self.mem['interrupted'] or (
             tm.time() - self.start_time) > self.t_max
+        ans = self.mem['interrupted'] or (
+            tm.time() - self.start_time) > self.t_max
         ldebug and logger.debug(f'Stop={ans}')
         return ans
 
