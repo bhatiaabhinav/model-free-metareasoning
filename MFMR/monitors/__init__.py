@@ -99,7 +99,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'beta_options': [0.0],
                      'stop_action_available': False,
                      'monitoring_interval': 1 / 5,
-                     'observe_beta': True,
+                     'observe_beta': False,
                      'algo_cls': AAstar,
                      'weight': w,
                      'weight_max': 3,
@@ -108,7 +108,32 @@ for w in np.arange(1, 3.25, 0.1):
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
-                     'N_range': [n, n + 1]
+                     'N_range': [n, n + 1],
+                     'inverse': False
+                 }
+                 )
+
+for w in np.arange(1, 3.25, 0.1):
+    w = np.round(w, 2)
+    for n in range(1, 9):
+        register(f'A{w}Astar-inv-{n}puzzle-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                 kwargs={
+                     'alpha': 1000,
+                     # 'beta_options': [beta - 0.1, beta, beta + 0.1],
+                     'beta_options': [0.0],
+                     'stop_action_available': False,
+                     'monitoring_interval': 1 / 5,
+                     'observe_beta': False,
+                     'algo_cls': AAstar,
+                     'weight': w,
+                     'weight_max': 3,
+                     'weight_interval': 0.1,
+                     'time_max': 10,
+                     'adjust_weight': True,
+                     'observe_ub': True,
+                     'search_problem_cls': NPuzzle,
+                     'N_range': [n, n + 1],
+                     'inverse': True
                  }
                  )
 

@@ -1,0 +1,3 @@
+python -m MFMR.deepRL A2.0Astar-4puzzle-v0 DQN 200000 --RPE_av_over=250 --gamma=0.99 --double_dqn --dqn_mse_loss --algo_suffix=seed0_N3DMSE_MB256_dynW2_tc10_draft --tags dyn W2 final draft --framestack=20 --seed=0 --hiddens 128 64 --nsteps=3 --train_freq=1 --exp_buff_len=200000 --mb_size=256 --grad_clip=1 --target_q_freq=1000 --min_explore_steps=1000 --ep_anneal_steps=20000 --ep=0.05 --model_save_freq=10000 --no_render --no_monitor --no_gpu
+
+python -m MFMR.deepRL A2.0Astar-4puzzle-v0 GAC 200000 --RPE_av_over=250 --gamma=0.99 --algo_suffix=seed0_gac_mb256_try --seed=0 --hiddens 128 64 --train_freq=1 --exp_buff_len=200000 --mb_size=256 --grad_clip=10 --target_q_freq=1000 --min_explore_steps=1000 --gac_alpha=0.01 --model_save_freq=10000 --no_render --no_monitor --no_gpu

@@ -19,15 +19,17 @@ ACTIONS = {
 
 
 class NPuzzle(SearchProblem):
-    def __init__(self, N_range):
+    def __init__(self, N_range, inverse=False):
         super().__init__()
         self.N_range = N_range
+        self.inverse = inverse
         self.N = self.N_range[0] + \
             self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         self.start_state = None
         self.cur_difficulty = None
         self.cur_relative_difficulty = None
         self.cache = {}
+        self.cache_inverse = {}
 
     def compute_max_difficulty(self, n):
         # 4n (n-1 + n-3 + n-5 + ...)
@@ -46,6 +48,7 @@ class NPuzzle(SearchProblem):
 
     def reset(self):
         self.cache.clear()  # TODO: Should work withouot this
+        self.cache_inverse.clear()
         self.N = self.N_range[0] + \
             self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         self.initial_puzzle = self.get_initial_puzzle()
@@ -55,7 +58,7 @@ class NPuzzle(SearchProblem):
         self.cur_difficulty = min_difficulty + \
             self.random.randint(max_difficulty + 1 - min_difficulty)
         self.cur_relative_difficulty = self.cur_difficulty / self.max_difficulty
-        print(self.N, self.cur_difficulty, self.max_difficulty)
+        # print(self.N, self.cur_difficulty, self.max_difficulty)
         # raise RuntimeError()
         self.start_state = self.get_difficult_puzzle(self.cur_difficulty)
         self.info = {
@@ -156,10 +159,14 @@ class NPuzzle(SearchProblem):
 
         return puzzle
 
-    def get_manhattan_distance(self, puzzle):
+    def get_manhattan_distance(self, puzzle, inverse=False):
         puzzle_key = self.hash_state(puzzle)
-        if puzzle_key in self.cache:
-            return self.cache[puzzle_key]
+        if inverse:
+            if puzzle_key in self.cache_inverse:
+                return self.cache_inverse[puzzle_key]
+        else:
+            if puzzle_key in self.cache:
+                return self.cache[puzzle_key]
 
         size = self.N
         goal_puzzle = self.initial_puzzle
@@ -174,9 +181,17 @@ class NPuzzle(SearchProblem):
 
                 locations = np.where(puzzle == value)
                 x, y = locations[0][0], locations[1][0]
-                manhattan_distance += distance.cityblock((x, y), (row, column))
+                if inverse:
+                    manhattan_distance += distance.cityblock(
+                        (x, y), (row, column)) / value
+                else:
+                    manhattan_distance += distance.cityblock(
+                        (x, y), (row, column))
 
-        self.cache[puzzle_key] = manhattan_distance
+        if inverse:
+            self.cache_inverse[puzzle_key] = manhattan_distance
+        else:
+            self.cache[puzzle_key] = manhattan_distance
 
         return manhattan_distance
 
@@ -198,10 +213,15 @@ class NPuzzle(SearchProblem):
                 yield successor
 
     def cost(self, state, action, next_state):
+        if self.inverse:
+            moved_tile = np.sum(
+                np.abs(np.asarray(state) - np.asarray(next_state))) / 2
+            # print(state, action, next_state, moved_tile)
+            return 1 / moved_tile
         return 1
 
     def heuristic(self, state):
-        return self.get_manhattan_distance(state)
+        return self.get_manhattan_distance(state, inverse=self.inverse)
 
     def hash_state(self, state):
         return str(state.tolist())

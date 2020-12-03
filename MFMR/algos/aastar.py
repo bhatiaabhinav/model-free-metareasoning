@@ -207,7 +207,7 @@ class AAstar(AsyncAlgo):
             self.mem['cost_lb'] = self.mem['cost']
             self.mem['best_g'] = 0
             self.mem['best_h'] = 0
-            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = 0, 0, 0, 0, 1, 0
+            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = 0, 0, 0, 0, 0, 0
             self.mem['frac_nodes'] = 0
 
     def reset(self):

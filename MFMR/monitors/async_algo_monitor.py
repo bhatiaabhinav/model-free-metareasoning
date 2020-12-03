@@ -189,8 +189,8 @@ class AsyncAlgoMonitor(gym.Env):
                 x = self.render_ts
                 plt.clf()
                 plt.plot(x, self.render_qs, label='10 * q', color='blue')
-                plt.plot(x, self.render_utils,
-                         label=f'10 * util/α', color='red')
+                # plt.plot(x, self.render_utils,
+                #          label=f'10 * util/α', color='red')
                 plt.plot(x, self.render_ws, label='w', color='brown')
                 plt.plot(x, self.render_q_ubs,
                          label='10 * q_ub', color='green')
