@@ -378,8 +378,8 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
-        '''weight, q, ub, t, sys_usage, frac_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
-        return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0] * len(self.problem.get_obs())), high=np.array([1.0] * 13 + [0.0] * len(self.problem.get_obs())), dtype=np.float32)
+        '''weight, q, ub, t, sys_usage_cpu, frac_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
+        return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0] * len(self.problem.get_obs())), high=np.array([1.0] * 13 + [1.0] * len(self.problem.get_obs())), dtype=np.float32)
 
     def get_obs(self):
         ldebug and logger.debug('getting obs')

@@ -1,5 +1,4 @@
 import time as tm
-from multiprocessing import Manager
 
 import gym
 import numpy as np

@@ -2,13 +2,12 @@ import queue
 
 import numpy as np
 
-from MFMR.utils import update_mean, update_mean_std
-
 
 class SearchProblem:
     def __init__(self):
         self.start_state = None
-        self.random = np.random.RandomState()
+        self.random = np.random.RandomState()  # do any random stuff with this.
+        # self.info disctionary provide interesting info at any timestep. It will be logged to wandb dashboard:
         self.info = {}
 
     def seed(self, seed):

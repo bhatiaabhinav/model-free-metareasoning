@@ -6,6 +6,7 @@ from MFMR.algos.file_algo import FileAlgo
 from MFMR.algos.n_puzzle import NPuzzle
 from MFMR.algos.tsp import Tsp
 from MFMR.algos.tsp_search_prob import TSPProblem
+from MFMR.algos.city_nav import CityNavigation
 
 register('FileAlgo-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor', kwargs={
     'alpha': 200,
@@ -150,7 +151,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'beta_options': [0.0],
                      'stop_action_available': False,
                      'monitoring_interval': 1 / 5,
-                     'observe_beta': True,
+                     'observe_beta': False,
                      'algo_cls': AAstar,
                      'weight': w,
                      'weight_max': 3,
@@ -162,5 +163,32 @@ for w in np.arange(1, 3.25, 0.1):
                      'N_range': [n - 5, n + 5],
                      #  'N_options': [10],
                      'sparsity_range': [0.0, 0.3]
+                 }
+                 )
+
+
+for w in np.arange(1, 3.25, 0.1):
+    w = np.round(w, 2)
+    for n in range(10, 21):  # TODO: city navigation size range
+        register(f'A{w}Astar-{n}citynav-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+                 kwargs={
+                     'alpha': 1000,
+                     # 10s, 9s, 7s, 6s, 4s
+                     #  'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
+                     # "beta_options": [0],
+                     'beta_options': [0.0],  # time cost
+                     'stop_action_available': False,  # False means time contract setting
+                     'monitoring_interval': 1 / 5,
+                     'observe_beta': False,  # set to true to observe timecost
+                     'algo_cls': AAstar,
+                     'weight': w,
+                     'weight_max': 3,
+                     'weight_interval': 0.1,
+                     'time_max': 10,
+                     'adjust_weight': True,
+                     'observe_ub': True,
+                     'search_problem_cls': CityNavigation,
+                     'example_arg1': n,
+                     'example_kwarg1': 20
                  }
                  )
