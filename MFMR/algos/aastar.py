@@ -207,7 +207,7 @@ class AAstar(AsyncAlgo):
             self.mem['cost_lb'] = self.mem['cost']
             self.mem['best_g'] = 0
             self.mem['best_h'] = 0
-            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = 0, 0, 0, 0, 0, 0
+            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], _ = 0, 0, 0, 0, 0, 0
             self.mem['frac_nodes'] = 0
 
     def reset(self):
@@ -313,8 +313,8 @@ class AAstar(AsyncAlgo):
                                 removes old node with g=`path_costs[child_node_key]` from either closed set or open list.
                                 Then adds a new node with same state as the removed node, but with g=`child_node_g`, to the open list.
                                 The statistics need to be updated accordingly.'''
-                                old_node_g = path_costs[child_node_key]
-                                old_node_h = child_node_h
+                                # old_node_g = path_costs[child_node_key]
+                                # old_node_h = child_node_h
 
                                 '''the replacement operation:'''
                                 path_costs[child_node_key] = child_node.path_cost
@@ -379,7 +379,7 @@ class AAstar(AsyncAlgo):
 
     def get_obs_space(self) -> gym.Space:
         '''weight, q, ub, t, sys_usage, frac_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
-        return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0]*len(self.problem.get_obs())), high=np.array([1.0] * 13 + [0.0]*len(self.problem.get_obs())), dtype=np.float32)
+        return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0] * len(self.problem.get_obs())), high=np.array([1.0] * 13 + [0.0] * len(self.problem.get_obs())), dtype=np.float32)
 
     def get_obs(self):
         ldebug and logger.debug('getting obs')
@@ -404,7 +404,7 @@ class AAstar(AsyncAlgo):
         return obs
 
     def get_info(self):
-        w = self.w
+        # w = self.w
         q = self.get_solution_quality()
         assert q <= 1 + 1e-6
         t = self.get_time()
@@ -421,9 +421,9 @@ class AAstar(AsyncAlgo):
         std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         corr_gh = self.mem['corr_gh']
-        prob_obs = self.problem.get_obs()
+        # prob_obs = self.problem.get_obs()
         info = {'solution_quality': q, 'time': t, 'w': self.w, 'q_ub': q_ub, 'cpu': cpu,
-                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h,  'corr_gh': corr_gh, 'frac_open_nodes': n}
+                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h, 'corr_gh': corr_gh, 'frac_open_nodes': n}
         info.update(self.problem.info)
         return info
 
@@ -480,7 +480,7 @@ if __name__ == '__main__':
     from MFMR.algos.tsp_search_prob import TSPProblem
     aastar = AAstar(2.0, 3.0, 0.1, 180, True, True, TSPProblem,
 
-                    N_range=[10,  10], sparsity_range=[0, 0.0])
+                    N_range=[10, 10], sparsity_range=[0, 0.0])
     aastar.seed(0)
     aastar.reset()
     aastar.run()

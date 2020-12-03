@@ -1,7 +1,6 @@
 import logging
 
 import numpy as np
-from wandb.apis.public import Run
 from MFMR.algos.search_problem import SearchProblem
 from scipy.spatial import distance
 
@@ -47,7 +46,7 @@ class NPuzzle(SearchProblem):
         return [self.N / self.N_range[1], self.cur_relative_difficulty]
 
     def reset(self):
-        self.cache.clear()  # TODO: Should work withouot this
+        self.cache.clear()  # TODO: Should work without this
         self.cache_inverse.clear()
         self.N = self.N_range[0] + \
             self.random.randint(self.N_range[1] + 1 - self.N_range[0])

@@ -1,11 +1,9 @@
 import logging
-import signal
 import sys
 import time
 from multiprocessing import Process
 
 import gym
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np  # noqa
 from gym.envs.classic_control.rendering import SimpleImageViewer
@@ -168,19 +166,19 @@ class AsyncAlgoMonitor(gym.Env):
         info['w_av'] = np.mean(ws)
         info['w_std'] = np.std(ws)
         ep_len = len(ws)
-        part_lenths = np.array([ep_len // 4] * 4)
+        part_lengths = np.array([ep_len // 4] * 4)
         remainder = ep_len % 4
         if remainder > 0:
-            part_lenths[0:remainder] = part_lenths[0:remainder] + 1
+            part_lengths[0:remainder] = part_lengths[0:remainder] + 1
         if ep_len >= 4:
-            # print(part_lenths)
-            info['w1'] = np.mean(ws[0:part_lenths[0]])
+            # print(part_lengths)
+            info['w1'] = np.mean(ws[0:part_lengths[0]])
             info['w2'] = np.mean(
-                ws[part_lenths[0]:part_lenths[0] + part_lenths[1]])
+                ws[part_lengths[0]:part_lengths[0] + part_lengths[1]])
             info['w3'] = np.mean(
-                ws[part_lenths[0] + part_lenths[1]:part_lenths[0] + part_lenths[1] + part_lenths[2]])
+                ws[part_lengths[0] + part_lengths[1]:part_lengths[0] + part_lengths[1] + part_lengths[2]])
             info['w4'] = np.mean(
-                ws[part_lenths[0] + part_lenths[1] + part_lenths[2]:])
+                ws[part_lengths[0] + part_lengths[1] + part_lengths[2]:])
 
         self.last_step_at = time.time()
 
