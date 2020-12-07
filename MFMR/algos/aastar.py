@@ -139,7 +139,7 @@ class AAstar(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, weight, weight_max, weight_interval, time_max, adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
+    def __init__(self, weight, weight_max, weight_interval, time_max, nodes_budget, adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
         super().__init__()
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
@@ -151,6 +151,7 @@ class AAstar(AsyncAlgo):
             self.w_min, self.w_max, self.w_interval)[-1]
         self.w_init_index = MultiWeightOpenLists.get_w_index(weight, self.ws)
         self.t_max = time_max
+        self.nodes_budget = nodes_budget
         self.adjust_weight = adjust_weight
         self.observe_ub = observe_ub
         self.viewer = None
@@ -217,6 +218,7 @@ class AAstar(AsyncAlgo):
         self.mem['w_index'] = self.w_init_index
         self.mem['action'] = 0
         self.mem['cost'] = np.inf
+        self.mem['num_nodes_expanded'] = 0
         self.start_heuristic = self.problem.heuristic(self.problem.start_state)
         # print('Start heuristic =', self.start_heuristic)
         # logger.info(f'Start Heuristic = {self.start_heuristic}')
@@ -239,9 +241,9 @@ class AAstar(AsyncAlgo):
         # print(
         #     f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
         ans = converged or self.mem['interrupted'] or (
-            tm.time() - self.start_time) > self.t_max
-        ans = self.mem['interrupted'] or (
-            tm.time() - self.start_time) > self.t_max
+            tm.time() - self.start_time) > self.t_max or (self.mem['num_nodes_expanded'] >= self.nodes_budget)
+        # ans = self.mem['interrupted'] or (
+        #     tm.time() - self.start_time) > self.t_max or (self.mem['num_nodes_expanded'] >= self.nodes_budget)
         ldebug and logger.debug(f'Stop={ans}')
         return ans
 
@@ -352,6 +354,7 @@ class AAstar(AsyncAlgo):
                 '''
                 For loop ends here. We have expanded the current node and added (some of) its children to open list.
                 '''
+                self.mem['num_nodes_expanded'] = self.mem['num_nodes_expanded'] + 1
             else:
                 '''This is a useless node in the openlist - no potential to improve the solution.
                 Ignore it - let's prune its subtree'''
@@ -387,6 +390,7 @@ class AAstar(AsyncAlgo):
         q = (self.start_heuristic + 1) / (self.cost + 1)
         ub = (self.start_heuristic + 1) / (self.cost_lb + 1)
         t = self.get_time() / self.t_max
+        wall_time = self.get_wall_time() / self.t_max
         cpu = psutil.cpu_percent() / 100
         n = self.frac_open_nodes
         best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
@@ -408,6 +412,7 @@ class AAstar(AsyncAlgo):
         q = self.get_solution_quality()
         assert q <= 1 + 1e-6
         t = self.get_time()
+        wall_time = self.get_wall_time()
         q_ub = self.start_heuristic / (self.cost_lb)
         assert q_ub <= 1 + \
             1e-6, f"{q}, {q_ub}, {self.start_heuristic}, {self.cost_lb}, {self.cost}"
@@ -421,9 +426,10 @@ class AAstar(AsyncAlgo):
         std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         corr_gh = self.mem['corr_gh']
+        expansion_rate = self.mem['num_nodes_expanded'] / wall_time
         # prob_obs = self.problem.get_obs()
-        info = {'solution_quality': q, 'time': t, 'w': self.w, 'q_ub': q_ub, 'cpu': cpu,
-                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h, 'corr_gh': corr_gh, 'frac_open_nodes': n}
+        info = {'solution_quality': q, 'time': t, 'wall_time': wall_time, 'w': self.w, 'q_ub': q_ub, 'cpu': cpu,
+                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h, 'corr_gh': corr_gh, 'frac_open_nodes': n, 'expansion_rate': expansion_rate}
         info.update(self.problem.info)
         return info
 
@@ -461,7 +467,19 @@ class AAstar(AsyncAlgo):
         # print(self.cost)
         return self.start_heuristic / (self.cost)
 
+    @property
+    def is_time_virtual(self):
+        return self.nodes_budget is not None
+
     def get_time(self):
+        if self.is_time_virtual:
+            nodes = self.mem['num_nodes_expanded']
+            time = (nodes / self.nodes_budget) * self.t_max
+        else:
+            time = tm.time() - self.start_time
+        return time
+
+    def get_wall_time(self):
         time = tm.time() - self.start_time
         return time
 
