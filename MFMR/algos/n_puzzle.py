@@ -52,8 +52,8 @@ class NPuzzle(SearchProblem):
             self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         self.initial_puzzle = self.get_initial_puzzle()
         self.max_difficulty = self.compute_max_difficulty(self.N)
-        min_difficulty = 30
-        max_difficulty = 40
+        min_difficulty = 50
+        max_difficulty = 60
         self.cur_difficulty = min_difficulty + \
             self.random.randint(max_difficulty + 1 - min_difficulty)
         self.cur_relative_difficulty = self.cur_difficulty / self.max_difficulty

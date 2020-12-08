@@ -74,6 +74,10 @@ class AsyncAlgo:
         '''
         raise NotImplementedError()
 
+    def get_wall_time(self):
+        '''should return wall time seconds since start of run'''
+        raise NotImplementedError()
+
     def seed(self, seed):
         self.random.seed(seed)
 

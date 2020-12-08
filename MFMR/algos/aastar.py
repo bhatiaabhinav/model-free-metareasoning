@@ -139,7 +139,7 @@ class AAstar(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, weight, weight_max, weight_interval, time_max, nodes_budget, adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
+    def __init__(self, weight, weight_max, weight_interval, time_max, ref_nodes_budget, simulate_ref_machine, adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
         super().__init__()
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
@@ -150,8 +150,10 @@ class AAstar(AsyncAlgo):
         self.ws = MultiWeightOpenLists.get_weights_list(
             self.w_min, self.w_max, self.w_interval)[-1]
         self.w_init_index = MultiWeightOpenLists.get_w_index(weight, self.ws)
+        self.start_weight = weight
         self.t_max = time_max
-        self.nodes_budget = nodes_budget
+        self.ref_nodes_budget = ref_nodes_budget
+        self.simulate_ref_machine = simulate_ref_machine
         self.adjust_weight = adjust_weight
         self.observe_ub = observe_ub
         self.viewer = None
@@ -181,35 +183,84 @@ class AAstar(AsyncAlgo):
         return self.mem['interrupted']
 
     @property
-    def frac_open_nodes(self):
-        return self.mem['frac_nodes']
+    def log_num_nodes(self):
+        return self.mem['log_num_nodes']
 
     @property
     def n_solutions(self):
         return self.mem['n_solutions']
 
-    def update_stats(self, open_lists: MultiWeightOpenLists):
-        # logger.debug('Recording stats')
-        # print('recording stats')
+    # def update_stats_(self, open_lists: MultiWeightOpenLists):
+    #     # logger.debug('Recording stats')
+    #     # print('recording stats')
+    #     if len(open_lists) > 0:
+    #         best_key, (best_node, best_g, best_h), best_f = open_lists.peek(0)
+    #         # assert best_h == self.problem.heuristic(best_node.state)
+    #         # assert best_g == best_node.path_cost
+    #         assert abs(best_f - (best_g + best_h)) < 1e-6
+    #         # print('new lower bound', best_f)
+    #         assert best_f >= self.mem['cost_lb'] - \
+    #             1e-6, f"{best_f}, {self.mem['cost_lb']}"
+    #         self.mem['cost_lb'] = best_f if self.mem['cost'] > self.mem['cost_lb'] else self.mem['cost']
+    #         self.mem['best_g'] = best_g
+    #         self.mem['best_h'] = best_h
+    #         self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = open_lists.stats
+    #         self.mem['frac_nodes'] = open_lists.get_frac_nodes()
+    #     else:
+    #         self.mem['cost_lb'] = self.mem['cost']
+    #         self.mem['best_g'] = 0
+    #         self.mem['best_h'] = 0
+    #         self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], _ = 0, 0, 0, 0, 0, 0
+    #         self.mem['frac_nodes'] = 0
+
+    def reset_stats(self, start_heuristic):
+        stats = {
+            'mean_g': 0,
+            'mean_h': 0,
+            'std_g': 0,
+            'std_h': 0,
+            'best_g': 0,
+            'best_h': 0,
+            'corr_gh': 0,
+            'cost_lb': start_heuristic,
+            'cost': np.inf,
+            'n_solutions': 0,
+            'log_open_nodes': 0,
+            'nodes_expanded': 0,
+            'time': 0,
+            'wall_time': 0,
+            'simulated_time': 0
+        }
+        return stats
+
+    def update_stats(self, stats, open_lists, wall_time, nodes_expanded):
+        stats['nodes_expanded'] = nodes_expanded
+        wall_expansion_rate = nodes_expanded / wall_time
+        stats['wall_time'] = wall_time
+        ref_expansion_rate = self.ref_nodes_budget / self.t_max
+        stats['simulated_time'] = (wall_expansion_rate /
+                                   ref_expansion_rate) * wall_time
+        stats['time'] = stats['simulated_time'] if self.simulate_ref_machine else stats['wall_time']
+
         if len(open_lists) > 0:
+            # open lists stats:
             best_key, (best_node, best_g, best_h), best_f = open_lists.peek(0)
-            # assert best_h == self.problem.heuristic(best_node.state)
-            # assert best_g == best_node.path_cost
             assert abs(best_f - (best_g + best_h)) < 1e-6
-            # print('new lower bound', best_f)
-            assert best_f >= self.mem['cost_lb'] - \
-                1e-6, f"{best_f}, {self.cost_lb}"
-            self.mem['cost_lb'] = best_f if self.mem['cost'] > self.mem['cost_lb'] else self.mem['cost']
-            self.mem['best_g'] = best_g
-            self.mem['best_h'] = best_h
-            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], n = open_lists.stats
-            self.mem['frac_nodes'] = open_lists.get_frac_nodes()
+            assert best_f >= stats['cost_lb'] - \
+                1e-6, f"{best_f},f{stats['cost_lb']}"
+            stats['cost_lb'] = best_f if stats['cost'] > stats['cost_lb'] else stats['cost']
+            stats['best_g'] = best_g
+            stats['best_h'] = best_h
+            stats['mean_g'], stats['mean_h'], stats['std_g'], stats['std_h'], stats['corr_gh'], _ = open_lists.stats
+            stats['log_open_nodes'] = np.log10(len(open_lists))
         else:
-            self.mem['cost_lb'] = self.mem['cost']
-            self.mem['best_g'] = 0
-            self.mem['best_h'] = 0
-            self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'], _ = 0, 0, 0, 0, 0, 0
-            self.mem['frac_nodes'] = 0
+            stats['cost_lb'] = stats['cost']
+        return stats
+
+    def write_stats(self, stats: dict):
+        # for k, v in stats.items():
+        #     self.mem[k] = v
+        self.mem.update(stats)
 
     def reset(self):
         logger.info('Resetting')
@@ -217,44 +268,39 @@ class AAstar(AsyncAlgo):
         self.problem.reset()
         self.mem['w_index'] = self.w_init_index
         self.mem['action'] = 0
-        self.mem['cost'] = np.inf
-        self.mem['num_nodes_expanded'] = 0
-        self.start_heuristic = self.problem.heuristic(self.problem.start_state)
-        # print('Start heuristic =', self.start_heuristic)
-        # logger.info(f'Start Heuristic = {self.start_heuristic}')
         self.start_time = tm.time()
         self.mem['interrupted'] = False
-        self.mem['cost_lb'] = self.start_heuristic
-        self.mem['best_g'] = 0
-        self.mem['best_h'] = self.start_heuristic
-        self.mem['mean_g'], self.mem['mean_h'], self.mem['std_g'], self.mem['std_h'], self.mem['corr_gh'] = 0, self.start_heuristic, 0, 0, 0
-        self.mem['frac_nodes'] = 0
-        self.mem['n_solutions'] = 0
+        self.start_heuristic = self.problem.heuristic(self.problem.start_state)
+        stats = self.reset_stats(self.start_heuristic)
+        self.write_stats(stats)
 
-    def stop_condition(self):
+    def stop_condition(self, stats, wall_time, nodes_expanded):
         # print(self.cost_lb, self.cost_ub)
-        converged = self.cost_lb >= self.cost_ub
+        converged = stats['cost_lb'] >= stats['cost']
         if converged:
-            self.mem['cost_lb'] = self.mem['cost']
+            stats['cost_lb'] = stats['cost']
+        wall_expansion_rate = nodes_expanded / wall_time
+        ref_expansion_rate = self.ref_nodes_budget / self.t_max
+        simulated_time = (wall_expansion_rate / ref_expansion_rate) * wall_time
+        time = simulated_time if self.simulate_ref_machine else wall_time
         ldebug and logger.debug(
-            f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
-        # print(
-        #     f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={tm.time() - self.start_time}')
-        ans = converged or self.mem['interrupted'] or (
-            tm.time() - self.start_time) > self.t_max or (self.mem['num_nodes_expanded'] >= self.nodes_budget)
-        # ans = self.mem['interrupted'] or (
-        #     tm.time() - self.start_time) > self.t_max or (self.mem['num_nodes_expanded'] >= self.nodes_budget)
+            f'Checking for stop. interrupt={self.mem["interrupted"]}, converged={converged}, time={time}')
+        ans = converged or self.mem['interrupted'] or (time > self.t_max)
         ldebug and logger.debug(f'Stop={ans}')
         return ans
 
     def run(self):
         logger.info('Starting run')
-        problem = self.problem
+        # stats
+        start_wall_time = tm.time()
+        nodes_expanded = 0
+        stats = self.reset_stats(self.start_heuristic)
 
+        problem = self.problem
         start_node = Node(problem.start_state)
         start_node_key = problem.hash_state(start_node.state)
 
-        logger.debug('Creating MultiWeight open lists')
+        ldebug and logger.debug('Creating MultiWeight open lists')
         '''The open list prioritizes nodes acc to f' = g + wh '''
         open_lists = MultiWeightOpenLists(
             self.ws[self.w_init_index], w_min=self.w_min, w_max=self.w_max, w_interval=self.w_interval)
@@ -267,9 +313,11 @@ class AAstar(AsyncAlgo):
         '''add root node to open list'''
         start_node_g, start_node_h = 0.0, problem.heuristic(start_node.state)
         open_lists.add(start_node_key, start_node, start_node_g, start_node_h)
-        logger.debug(f'Added start node{start_node.state}. f={start_node_h}')
-        self.update_stats(open_lists)
-        assert self.mem['cost_lb'] == start_node_h
+        ldebug and logger.debug(
+            f'Added start node{start_node.state}. f={start_node_h}')
+        stats = self.update_stats(
+            stats, open_lists, tm.time() - start_wall_time, nodes_expanded)
+        self.write_stats(stats)
 
         path_costs = {start_node_key: start_node.path_cost}
 
@@ -277,13 +325,12 @@ class AAstar(AsyncAlgo):
             '''set open list weight to what the metareasoner wants'''
             open_lists.w_index = self.w_index
             current_node_key, current_node, current_node_g, current_node_h = open_lists.pop()
-            # current_node_g, current_node_h = current_node.path_cost, problem.heuristic(
-            #     current_node.state)
             current_node_f = current_node_g + current_node_h
-            logger.debug(f'popped {current_node.state} f={current_node_f}')
+            ldebug and logger.debug(
+                f'popped {current_node.state} f={current_node_f}')
 
             if current_node_f < best_solution_f:
-                logger.debug(f'node worth exploring')
+                ldebug and logger.debug(f'node worth exploring')
                 '''This node is worth exploring. Its subtree might contain a better solution'''
                 closed_set.add(current_node_key)
 
@@ -291,26 +338,28 @@ class AAstar(AsyncAlgo):
                     child_node_g, child_node_h = child_node.path_cost, problem.heuristic(
                         child_node.state)
                     child_node_f = child_node_g + child_node_h
-                    logger.debug(f'child {child_node.state} f={child_node_f}')
+                    ldebug and logger.debug(
+                        f'child {child_node.state} f={child_node_f}')
                     child_node_key = problem.hash_state(child_node.state)
 
                     if child_node_f < best_solution_f:
-                        logger.debug('worthy child')
+                        ldebug and logger.debug('worthy child')
                         '''This child is worthy of creation. Its subtree might create a better solution'''
                         if problem.goal_test(child_node.state):
                             '''We found a solution. Now we won't add this node to any list.
                             We want to prune this subtree since we are not going to get any better solutions down this lane'''
-                            logger.debug('goal child')
+                            ldebug and logger.debug('goal child')
                             path_costs[child_node_key] = child_node.path_cost
                             best_solution_f = child_node_f
                             # self.mem['solution'] = child_node.get_solution()
-                            self.mem['cost'] = child_node_f
-                            self.mem['n_solutions'] = self.mem['n_solutions'] + 1
+                            stats['cost'] = child_node_f
+                            stats['n_solutions'] = stats['n_solutions'] + 1
+                            self.write_stats(stats)
                             # print('solution, cost = ', child_node_f)
                         elif child_node_key in closed_set or child_node_key in open_lists:
                             '''okay.. we have seen this state before. This child is so unoriginal: a duplicate.'''
                             if path_costs[child_node_key] > child_node.path_cost:
-                                logger.debug('Good duplicate')
+                                ldebug and logger.debug('Good duplicate')
                                 '''This duplicate child is better than the old node with this state. The operation below
                                 removes old node with g=`path_costs[child_node_key]` from either closed set or open list.
                                 Then adds a new node with same state as the removed node, but with g=`child_node_g`, to the open list.
@@ -321,23 +370,26 @@ class AAstar(AsyncAlgo):
                                 '''the replacement operation:'''
                                 path_costs[child_node_key] = child_node.path_cost
                                 if child_node_key in closed_set:
-                                    logger.debug('Removed old from closed set')
+                                    ldebug and logger.debug(
+                                        'Removed old from closed set')
                                     closed_set.remove(child_node_key)
                                 else:
-                                    logger.debug('Removed old from open list')
+                                    ldebug and logger.debug(
+                                        'Removed old from open list')
                                     del open_lists[child_node_key]
 
-                                logger.debug('Added duplicate to open list')
+                                ldebug and logger.debug(
+                                    'Added duplicate to open list')
                                 open_lists.add(
                                     child_node_key, child_node, child_node_g, child_node_h)
                             else:
-                                logger.debug('bad child')
+                                ldebug and logger.debug('bad child')
                                 '''ignore this duplicate child node because it is worse than the old node'''
                                 pass
                         else:
                             '''this is a new non-goal child node and it is not a duplicate, and its subtree is worth exploring
                             (because its f value is less than any solution known so far). So let's add it to open list'''
-                            logger.debug('Added child to open list')
+                            ldebug and logger.debug('Added child to open list')
                             path_costs[child_node_key] = child_node_g
                             open_lists.add(
                                 child_node_key, child_node, child_node_g, child_node_h)
@@ -349,26 +401,30 @@ class AAstar(AsyncAlgo):
 
                     '''Done another iteration of the for loop : a child has been potentially added.
                     Let's check for interruption or timeout'''
-                    if self.stop_condition():
+                    if self.stop_condition(stats, tm.time() - start_wall_time, nodes_expanded):
                         break
                 '''
                 For loop ends here. We have expanded the current node and added (some of) its children to open list.
                 '''
-                self.mem['num_nodes_expanded'] = self.mem['num_nodes_expanded'] + 1
+                nodes_expanded += 1
             else:
                 '''This is a useless node in the openlist - no potential to improve the solution.
                 Ignore it - let's prune its subtree'''
                 logger.debug('Non worthy open')
                 pass
 
-            # if len(open_lists) > 0:
-            self.update_stats(open_lists)
+            # nodes_expanded += 1
+            wall_time = tm.time() - start_wall_time
+
+            stats = self.update_stats(
+                stats, open_lists, wall_time, nodes_expanded)
+            self.write_stats(stats)
 
             '''Done another iteration of the while loop : processed a node from the open list.
             Let's check for interruption or timeout'''
-            if self.stop_condition():
+            if self.stop_condition(stats, wall_time, nodes_expanded):
+                print(nodes_expanded, nodes_expanded / wall_time)
                 break
-
         '''
         At this point, EITHER the open list is empty and we have found an optimal solution
         OR the algorithm was interrupted and we have a suboptimal solution.
@@ -381,18 +437,17 @@ class AAstar(AsyncAlgo):
         self.mem['interrupted'] = True
 
     def get_obs_space(self) -> gym.Space:
-        '''weight, q, ub, t, sys_usage_cpu, frac_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
+        '''weight, q, ub, t, sys_usage_cpu, log_open_nodes, best_g, best_h, mean_g, mean_h, std_g, std_h, corr_gh, search prob obs'''
         return gym.spaces.Box(low=np.array([0.0] * 13 + [0.0] * len(self.problem.get_obs())), high=np.array([1.0] * 13 + [1.0] * len(self.problem.get_obs())), dtype=np.float32)
 
     def get_obs(self):
         ldebug and logger.debug('getting obs')
         w = (self.w - self.w_min) / (self.w_max - self.w_min)
-        q = (self.start_heuristic + 1) / (self.cost + 1)
-        ub = (self.start_heuristic + 1) / (self.cost_lb + 1)
-        t = self.get_time() / self.t_max
-        wall_time = self.get_wall_time() / self.t_max
+        q = (self.start_heuristic + 1) / (self.mem['cost'] + 1)
+        ub = (self.start_heuristic + 1) / (self.mem['cost_lb'] + 1)
+        t = self.mem['time'] / self.t_max
         cpu = psutil.cpu_percent() / 100
-        n = self.frac_open_nodes
+        n = self.mem['log_open_nodes']
         best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
         best_h = (self.start_heuristic + 1) / (self.mem['best_h'] + 1)
         mean_g = (self.start_heuristic + 1) / (self.mem['mean_g'] + 1)
@@ -411,14 +466,13 @@ class AAstar(AsyncAlgo):
         # w = self.w
         q = self.get_solution_quality()
         assert q <= 1 + 1e-6
-        t = self.get_time()
-        wall_time = self.get_wall_time()
-        q_ub = self.start_heuristic / (self.cost_lb)
+        cost_lb = self.mem['cost_lb']
+        cost = self.mem['cost']
+        q_ub = self.start_heuristic / (cost_lb)
         assert q_ub <= 1 + \
-            1e-6, f"{q}, {q_ub}, {self.start_heuristic}, {self.cost_lb}, {self.cost}"
+            1e-6, f"{q}, {q_ub}, {self.start_heuristic}, {cost_lb}, {cost}"
         # assert q <= q_ub, f"{q}, {q_ub}"
         cpu = psutil.cpu_percent() / 100
-        n = self.frac_open_nodes
         best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
         best_h = (self.start_heuristic + 1) / (self.mem['best_h'] + 1)
         mean_g = (self.start_heuristic + 1) / (self.mem['mean_g'] + 1)
@@ -426,10 +480,33 @@ class AAstar(AsyncAlgo):
         std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         corr_gh = self.mem['corr_gh']
-        expansion_rate = self.mem['num_nodes_expanded'] / wall_time
-        # prob_obs = self.problem.get_obs()
-        info = {'solution_quality': q, 'time': t, 'wall_time': wall_time, 'w': self.w, 'q_ub': q_ub, 'cpu': cpu,
-                'n_solutions': self.n_solutions, 'best_g': best_g, 'best_h': best_h, 'mean_g': mean_g, 'std_g': std_g, 'mean_h': mean_h, 'std_h': std_h, 'corr_gh': corr_gh, 'frac_open_nodes': n, 'expansion_rate': expansion_rate}
+        info = {
+            'w': self.w,
+            'start_w': self.start_weight,
+            'w_max': self.w_max,
+            'w_min': self.w_min,
+            'w_interval': self.w_interval,
+            't_max': self.t_max,
+            'ref_nodes_budget': self.ref_nodes_budget,
+            'simulate_ref_machine': int(self.simulate_ref_machine),
+            'adjust_weight': self.adjust_weight,
+            'solution_quality': q,
+            'time': self.mem['time'],
+            'nodes_expanded': self.mem['nodes_expanded'],
+            'wall_time': self.mem['wall_time'],
+            'simulated_time': self.mem['simulated_time'],
+            'q_ub': q_ub,
+            'cpu': cpu,
+            'n_solutions': self.mem['n_solutions'],
+            'best_g': best_g,
+            'best_h': best_h,
+            'mean_g': mean_g,
+            'mean_h': mean_h,
+            'std_g': std_g,
+            'std_h': std_h,
+            'corr_gh': corr_gh,
+            'log_open_nodes': self.mem['log_open_nodes'],
+        }
         info.update(self.problem.info)
         return info
 
@@ -472,16 +549,10 @@ class AAstar(AsyncAlgo):
         return self.nodes_budget is not None
 
     def get_time(self):
-        if self.is_time_virtual:
-            nodes = self.mem['num_nodes_expanded']
-            time = (nodes / self.nodes_budget) * self.t_max
-        else:
-            time = tm.time() - self.start_time
-        return time
+        return self.mem['time']
 
     def get_wall_time(self):
-        time = tm.time() - self.start_time
-        return time
+        return self.mem['wall_time']
 
     def seed(self, seed):
         super().seed(seed)

@@ -92,7 +92,7 @@ class AsyncAlgoMonitor(gym.Env):
         while not self.run_process.is_alive():
             time.sleep(0.001)
         self.logger.info('process now alive')
-        self.last_step_at = time.time()
+        self.last_step_at = self.get_time()
         return self.get_obs()
 
     def terminate_process(self):
@@ -145,10 +145,18 @@ class AsyncAlgoMonitor(gym.Env):
                 info['interrupted'] = 1
                 info['graceful_exit'] = int(self.terminate_process())
             else:
-                self.algo.set_action(action)
-                overhead = time.time() - self.last_step_at
-                time.sleep(max(self.monitoring_interval - overhead, 0))
+                # self.algo.set_action(action)
+                # overhead = self.get_time() - self.last_step_at
+                # print(self.monitoring_interval - overhead, self.get_time())
+                # time.sleep(max(self.monitoring_interval - overhead, 0))
+                t_prev = self.last_step_at
+                t_now = self.get_time()
+                while self.run_process.is_alive() and ((t_now - t_prev) < self.monitoring_interval):
+                    time.sleep(self.monitoring_interval / 10)
+                    t_now = self.get_time()
+                # print(t_now - t_prev, t_now, t_prev)
 
+        self.last_step_at = self.get_time()
         self.cur_utility = self.get_cur_utility()
         info['utility'] = self.cur_utility
         # info['image'] = self.render(mode='rgb_array')
@@ -179,8 +187,6 @@ class AsyncAlgoMonitor(gym.Env):
                 ws[part_lengths[0] + part_lengths[1]:part_lengths[0] + part_lengths[1] + part_lengths[2]])
             info['w4'] = np.mean(
                 ws[part_lengths[0] + part_lengths[1] + part_lengths[2]:])
-
-        self.last_step_at = time.time()
 
         if (self.episode_id + 1) % 1 == 0:
             if done:
@@ -237,6 +243,9 @@ class AsyncAlgoMonitor(gym.Env):
 
     def get_time(self):
         return self.algo.get_time()
+
+    def get_wall_time(self):
+        return self.algo.get_wall_time()
 
     def get_cur_utility(self):
         '''time dependent utility'''
