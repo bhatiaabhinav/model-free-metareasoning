@@ -229,7 +229,8 @@ class AAstar(AsyncAlgo):
             'nodes_expanded': 0,
             'time': 0,
             'wall_time': 0,
-            'simulated_time': 0
+            'simulated_time': 0,
+            'nodes_to_first_solution': self.ref_nodes_budget,
         }
         return stats
 
@@ -308,7 +309,7 @@ class AAstar(AsyncAlgo):
         closed_set = set()
 
         '''The upperbound is the f = g + h of the latest solution found'''
-        best_solution_f = float('inf')
+        best_solution_f = np.inf
 
         '''add root node to open list'''
         start_node_g, start_node_h = 0.0, problem.heuristic(start_node.state)
@@ -350,6 +351,8 @@ class AAstar(AsyncAlgo):
                             We want to prune this subtree since we are not going to get any better solutions down this lane'''
                             ldebug and logger.debug('goal child')
                             path_costs[child_node_key] = child_node.path_cost
+                            if best_solution_f == np.inf:
+                                stats['nodes_to_first_solution'] = nodes_expanded
                             best_solution_f = child_node_f
                             # self.mem['solution'] = child_node.get_solution()
                             stats['cost'] = child_node_f
@@ -480,6 +483,7 @@ class AAstar(AsyncAlgo):
         std_g = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         std_h = (self.start_heuristic + 1) / (self.mem['std_g'] + 1)
         corr_gh = self.mem['corr_gh']
+        # nodes_to_first_solution = self.mem['nodes_to_first_solution']
         info = {
             'w': self.w,
             'start_w': self.start_weight,
@@ -493,6 +497,7 @@ class AAstar(AsyncAlgo):
             'solution_quality': q,
             'time': self.mem['time'],
             'nodes_expanded': self.mem['nodes_expanded'],
+            'nodes_to_first_solution': self.mem['nodes_to_first_solution'],
             'wall_time': self.mem['wall_time'],
             'simulated_time': self.mem['simulated_time'],
             'q_ub': q_ub,
@@ -507,6 +512,8 @@ class AAstar(AsyncAlgo):
             'corr_gh': corr_gh,
             'log_open_nodes': self.mem['log_open_nodes'],
         }
+        # if nodes_to_first_solution < np.inf:
+        #     info['nodes_to_first_solution'] = nodes_to_first_solution
         info.update(self.problem.info)
         return info
 
@@ -524,11 +531,11 @@ class AAstar(AsyncAlgo):
         meaning = self.get_action_meanings()[action]
         w_idx = self.w_index
         if meaning == 'INC_W_COURSE':
-            w_idx += 5
+            w_idx += 4
         elif meaning == 'INC_W':
             w_idx += 1
         elif meaning == 'DEC_W_COURSE':
-            w_idx -= 5
+            w_idx -= 4
         elif meaning == 'DEC_W':
             w_idx -= 1
         elif meaning == 'NOOP':
