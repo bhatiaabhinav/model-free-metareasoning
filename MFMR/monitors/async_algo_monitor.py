@@ -145,7 +145,7 @@ class AsyncAlgoMonitor(gym.Env):
                 info['interrupted'] = 1
                 info['graceful_exit'] = int(self.terminate_process())
             else:
-                # self.algo.set_action(action)
+                self.algo.set_action(action)
                 # overhead = self.get_time() - self.last_step_at
                 # print(self.monitoring_interval - overhead, self.get_time())
                 # time.sleep(max(self.monitoring_interval - overhead, 0))
