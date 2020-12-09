@@ -18,7 +18,7 @@ ACTIONS = {
 
 
 class NPuzzle(SearchProblem):
-    def __init__(self, N_range, inverse=False):
+    def __init__(self, N_range, min_manhattan, max_manhattan, inverse=False):
         super().__init__()
         self.N_range = N_range
         self.inverse = inverse
@@ -27,6 +27,8 @@ class NPuzzle(SearchProblem):
         self.start_state = None
         self.cur_difficulty = None
         self.cur_relative_difficulty = None
+        self.min_manhattan = min_manhattan
+        self.max_manhattan = max_manhattan
         self.cache = {}
         self.cache_inverse = {}
 
@@ -52,8 +54,8 @@ class NPuzzle(SearchProblem):
             self.random.randint(self.N_range[1] + 1 - self.N_range[0])
         self.initial_puzzle = self.get_initial_puzzle()
         self.max_difficulty = self.compute_max_difficulty(self.N)
-        min_difficulty = 50
-        max_difficulty = 60
+        min_difficulty = self.min_manhattan
+        max_difficulty = self.max_manhattan
         self.cur_difficulty = min_difficulty + \
             self.random.randint(max_difficulty + 1 - min_difficulty)
         self.cur_relative_difficulty = self.cur_difficulty / self.max_difficulty
@@ -64,9 +66,10 @@ class NPuzzle(SearchProblem):
             'puzzle_n': self.N,
             'puzzle_difficulty': self.cur_relative_difficulty,
             # 'puzzle': self.start_state
+            'puzzle_manhattan': self.cur_difficulty
         }
         logger.info(
-            f'puzzle={self.start_state}, puzzle_n={self.N}, difficulty={self.cur_relative_difficulty}')
+            f'puzzle={self.start_state}, puzzle_n={self.N}, difficulty={self.cur_relative_difficulty}, manhattan={self.cur_difficulty}')
 
     def get_initial_puzzle(self):
         size = self.N

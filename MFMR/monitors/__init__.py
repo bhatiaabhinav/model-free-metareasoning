@@ -1,12 +1,12 @@
+
 import numpy as np
 from gym.envs import register
-
 from MFMR.algos.aastar import AAstar
+from MFMR.algos.city_nav import CityNavigation
 from MFMR.algos.file_algo import FileAlgo
 from MFMR.algos.n_puzzle import NPuzzle
 from MFMR.algos.tsp import Tsp
 from MFMR.algos.tsp_search_prob import TSPProblem
-from MFMR.algos.city_nav import CityNavigation
 
 register('FileAlgo-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor', kwargs={
     'alpha': 200,
@@ -102,20 +102,22 @@ for w in np.arange(1, 3.25, 0.1):
                      'monitoring_interval': 1 / 5,
                      'observe_beta': False,
                      'algo_cls': AAstar,
-                     'weight': 1,
-                     'weight_max': 3,
-                     'weight_interval': 0.1,
+                     'weight': w,
+                     'weight_max': 5,
+                     'weight_interval': 0.25,
                      'time_max': 10,
-                     'ref_nodes_budget': 10000,
-                     'simulate_ref_machine': False,
-                     'adjust_weight': False,
+                     'ref_nodes_budget': 6000,
+                     'simulate_ref_machine': True,
+                     'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
-                     'N_range': [n+1, n + 1],
+                     'N_range': [n, n + 1],
+                     'min_manhattan': 45,
+                     'max_manhattan': 55,
                      'inverse': False
                  }
                  )
-
+p.add_argument('w', type=float, default=None)
 for w in np.arange(1, 3.25, 0.1):
     w = np.round(w, 2)
     for n in range(1, 9):
@@ -129,15 +131,17 @@ for w in np.arange(1, 3.25, 0.1):
                      'observe_beta': False,
                      'algo_cls': AAstar,
                      'weight': w,
-                     'weight_max': 3,
-                     'weight_interval': 0.1,
+                     'weight_max': 5,
+                     'weight_interval': 0.25,
                      'time_max': 10,
-                     'ref_nodes_budget': 2000,
-                     'simulate_ref_machine': False,
+                     'ref_nodes_budget': 6000,
+                     'simulate_ref_machine': True,
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
                      'N_range': [n, n + 1],
+                     'min_manhattan': 45,
+                     'max_manhattan': 55,
                      'inverse': True
                  }
                  )
@@ -158,11 +162,11 @@ for w in np.arange(1, 3.25, 0.1):
                      'observe_beta': False,
                      'algo_cls': AAstar,
                      'weight': w,
-                     'weight_max': 3,
-                     'weight_interval': 0.1,
+                     'weight_max': 5,
+                     'weight_interval': 0.25,
                      'time_max': 10,
-                     'ref_nodes_budget': 2000,
-                     'simulate_ref_machine': False,
+                     'ref_nodes_budget': 6000,
+                     'simulate_ref_machine': True,
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': TSPProblem,
@@ -188,11 +192,11 @@ for w in np.arange(1, 3.25, 0.1):
                      'observe_beta': False,  # set to true to observe timecost
                      'algo_cls': AAstar,
                      'weight': w,
-                     'weight_max': 3,
-                     'weight_interval': 0.1,
+                     'weight_max': 5,
+                     'weight_interval': 0.25,
                      'time_max': 10,
-                     'ref_nodes_budget': 2000,
-                     'simulate_ref_machine': False,
+                     'ref_nodes_budget': 6000,
+                     'simulate_ref_machine': True,
                      'adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': CityNavigation,
