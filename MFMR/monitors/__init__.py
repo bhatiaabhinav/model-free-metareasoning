@@ -117,7 +117,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'inverse': False
                  }
                  )
-p.add_argument('w', type=float, default=None)
+
 for w in np.arange(1, 3.25, 0.1):
     w = np.round(w, 2)
     for n in range(1, 9):
