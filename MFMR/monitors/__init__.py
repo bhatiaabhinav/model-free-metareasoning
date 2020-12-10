@@ -113,7 +113,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'search_problem_cls': NPuzzle,
                      'N_range': [n, n + 1],
                      'min_manhattan': 45,
-                     'max_manhattan': 55,
+                     'max_manhattan': 50,
                      'inverse': False
                  }
                  )
@@ -140,7 +140,7 @@ for w in np.arange(1, 3.25, 0.1):
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
                      'N_range': [n, n + 1],
-                     'min_manhattan': 45,
+                     'min_manhattan': 50,
                      'max_manhattan': 55,
                      'inverse': True
                  }
