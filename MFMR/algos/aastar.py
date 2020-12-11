@@ -139,7 +139,7 @@ class AAstar(AsyncAlgo):
     QUALITY_CLASS_COUNT = 100
     TIME_CLASS_COUNT = 100
 
-    def __init__(self, weight, weight_max, weight_interval, time_max, ref_nodes_budget, simulate_ref_machine, adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
+    def __init__(self, weight, weight_max, weight_interval, time_max, ref_nodes_budget, simulate_ref_machine, adjust_weight, random_adjust_weight, observe_ub, search_problem_cls, *search_problem_args, **search_problem_kwargs):
         super().__init__()
         self.iterations = ITERATIONS
         self.problem = search_problem_cls(
@@ -155,6 +155,7 @@ class AAstar(AsyncAlgo):
         self.ref_nodes_budget = ref_nodes_budget
         self.simulate_ref_machine = simulate_ref_machine
         self.adjust_weight = adjust_weight
+        self.random_adjust_weight = random_adjust_weight
         self.observe_ub = observe_ub
         self.viewer = None
 
@@ -324,7 +325,11 @@ class AAstar(AsyncAlgo):
 
         while len(open_lists) > 0:
             '''set open list weight to what the metareasoner wants'''
-            open_lists.w_index = self.w_index
+            if self.random_adjust_weight:
+                open_lists.w_index = self.random.randint(len(open_lists.ws))
+                self.mem['w_index'] = open_lists.w_index
+            else:
+                open_lists.w_index = self.w_index
             current_node_key, current_node, current_node_g, current_node_h = open_lists.pop()
             current_node_f = current_node_g + current_node_h
             ldebug and logger.debug(
@@ -487,6 +492,7 @@ class AAstar(AsyncAlgo):
         info = {
             'w': self.w,
             'start_w': self.start_weight,
+            'random_adjust': int(self.random_adjust_weight),
             'w_max': self.w_max,
             'w_min': self.w_min,
             'w_interval': self.w_interval,
@@ -521,13 +527,17 @@ class AAstar(AsyncAlgo):
         return gym.spaces.Discrete(len(self.get_action_meanings()))
 
     def get_action_meanings(self) -> List[str]:
-        if self.adjust_weight:
+        if self.random_adjust_weight:
+            return ['NOOP']
+        elif self.adjust_weight:
             return ['NOOP', 'INC_W_COURSE', 'INC_W', 'DEC_W_COURSE', 'DEC_W']
         else:
             return ['NOOP', 'DUMMY_1', 'DUMMY_2', 'DUMMY_3', 'DUMMY_4']
 
     def set_action(self, action):
         super().set_action(action)
+        if self.random_adjust_weight:
+            return
         meaning = self.get_action_meanings()[action]
         w_idx = self.w_index
         if meaning == 'INC_W_COURSE':
