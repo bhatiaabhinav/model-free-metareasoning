@@ -360,6 +360,7 @@ class AAstar(AsyncAlgo):
                                 stats['nodes_to_first_solution'] = nodes_expanded
                             best_solution_f = child_node_f
                             # self.mem['solution'] = child_node.get_solution()
+                            # print(child_node.get_solution())
                             stats['cost'] = child_node_f
                             stats['n_solutions'] = stats['n_solutions'] + 1
                             self.write_stats(stats)

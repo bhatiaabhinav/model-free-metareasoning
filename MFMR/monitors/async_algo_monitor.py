@@ -204,6 +204,10 @@ class AsyncAlgoMonitor(gym.Env):
                 fig.canvas.draw()
                 data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8)
                 img = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+                # print(self.render_ts)
+                # print(self.render_qs)
+                # print(self.render_ws)
+                # print(self.render_q_ubs)
                 # from RL.__main__ import logdir
                 # import os
                 # path = os.path.join(
@@ -230,6 +234,9 @@ class AsyncAlgoMonitor(gym.Env):
                     elif 'puzzle_n' in info:
                         wandb.log({"Plot": wandb.Image(
                             img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]}, Puzzle N = {info["puzzle_n"]}, Difficulty={np.round(info["puzzle_difficulty"], 1)})')})
+                    elif 'num_cities' in info:
+                        wandb.log({"Plot": wandb.Image(
+                            img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]})')})
         return self.get_obs(), reward, done, info
 
     def get_obs(self):

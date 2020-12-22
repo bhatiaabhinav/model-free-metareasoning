@@ -229,8 +229,8 @@ for w in np.arange(1, 3.25, 0.1):
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
                      'N_range': [n, n],
-                     'min_manhattan': 45,
-                     'max_manhattan': 50,
+                     'min_manhattan': 35,
+                     'max_manhattan': 45,
                      'inverse': False
                  }
                  )
@@ -247,19 +247,19 @@ for w in np.arange(1, 3.25, 0.1):
                      'monitoring_interval': 1 / 5,
                      'observe_beta': False,
                      'algo_cls': AAstar,
-                     'weight': 5,
+                     'weight': w,
                      'weight_max': 5,
                      'weight_interval': 0.25,
                      'time_max': 10,
                      'ref_nodes_budget': 6000,
                      'simulate_ref_machine': True,
-                     'adjust_weight': False,
-                     'random_adjust_weight': False,
+                     'adjust_weight': True,
+                     'random_adjust_weight': True,
                      'observe_ub': True,
                      'search_problem_cls': NPuzzle,
                      'N_range': [n, n],
-                     'min_manhattan': 45,
-                     'max_manhattan': 50,
+                     'min_manhattan': 35,
+                     'max_manhattan': 45,
                      'inverse': True
                  }
                  )
@@ -296,31 +296,30 @@ for w in np.arange(1, 3.25, 0.1):
                  )
 
 
-for w in np.arange(1, 3.25, 0.1):
-    w = np.round(w, 2)
-    for n in range(10, 21):  # TODO: city navigation size range
-        register(f'A{w}Astar-{n}citynav-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
-                 kwargs={
-                     'alpha': 1000,
-                     # 10s, 9s, 7s, 6s, 4s
-                     #  'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
-                     # "beta_options": [0],
-                     'beta_options': [0.0],  # time cost
-                     'stop_action_available': False,  # False means time contract setting
-                     'monitoring_interval': 1 / 5,
-                     'observe_beta': False,  # set to true to observe timecost
-                     'algo_cls': AAstar,
-                     'weight': w,
-                     'weight_max': 5,
-                     'weight_interval': 0.25,
-                     'time_max': 10,
-                     'ref_nodes_budget': 6000,
-                     'simulate_ref_machine': True,
-                     'adjust_weight': True,
-                     'random_adjust_weight': True,
-                     'observe_ub': True,
-                     'search_problem_cls': CityNavigation,
-                     'example_arg1': n,
-                     'example_kwarg1': 20
-                 }
-                 )
+register(f'AWAstar-citynav-v0', entry_point='MFMR.monitors.async_algo_monitor:AsyncAlgoMonitor',
+         kwargs={
+             'alpha': 1000,
+             # 10s, 9s, 7s, 6s, 4s
+             #  'beta_options': [0.3, 0.4, 0.5, 0.6, 0.7],
+             # "beta_options": [0],
+             'beta_options': [0.0],  # time cost
+             'stop_action_available': False,  # False means time contract setting
+             'monitoring_interval': 1 / 5,
+             'observe_beta': False,  # set to true to observe timecost
+             'algo_cls': AAstar,
+             'weight': 1,
+             'weight_max': 5,
+             'weight_interval': 0.25,
+             'time_max': 4,
+             'ref_nodes_budget': 2400,
+             'simulate_ref_machine': True,
+             'adjust_weight': True,
+             'random_adjust_weight': True,
+             'observe_ub': False,
+             'search_problem_cls': CityNavigation,
+             'n_c': 3,
+             'n_p': 3,
+             'num_cities': 150,
+             'num_places': 150
+         }
+         )

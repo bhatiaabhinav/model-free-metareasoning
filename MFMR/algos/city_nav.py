@@ -1,4 +1,5 @@
 import logging
+from typing import List, Set, Tuple
 
 import numpy as np
 from MFMR.algos.search_problem import SearchProblem
@@ -14,15 +15,87 @@ ldebug = logger.isEnabledFor(logging.DEBUG)
 # ! it is preffered that the logger.debug(...) call be made like `ldebug and logger.debug(...)`
 
 
+class Place:
+    def __init__(self, parent_city, id_no: int, position: np.ndarray) -> None:
+        self.position = position
+        self.neighbors = set()  # type: Set[Place]
+        self.id_no = id_no
+        self.parent_city = parent_city  # type: City
+
+    def __repr__(self) -> str:
+        return f'{self.parent_city.id_no, self.id_no, self.position}'
+
+    def __str__(self) -> str:
+        return f'{self.parent_city.id_no, self.id_no}'
+
+
+class City:
+    def __init__(self, id_no: int, position: np.ndarray, n_p, random: np.random.RandomState, num_places=150, city_size=1) -> None:
+        self.position = position
+        self.id_no = id_no
+        self.num_places = num_places
+        self.n_p = n_p
+        self.random = random
+        self.city_size = city_size
+        self._generate_places()
+        self.neighbors = set()  # type: Set[City]
+
+    def connect(self, place1: Place, place2: Place):
+        if place2 not in place1.neighbors:  # don't allow recalculation of cost
+            distance = np.linalg.norm(place1.position - place2.position)
+            cost = distance * (1 + self.random.random() * 0.1)
+            self.costs[place1.id_no, place2.id_no] = cost
+            self.costs[place2.id_no, place1.id_no] = cost
+            place1.neighbors.add(place2)
+            place2.neighbors.add(place1)
+
+    def _generate_places(self):
+        self.places = []  # type: List[Place]
+        self.costs = np.ones(shape=(self.num_places, self.num_places)) * np.inf
+
+        for place_idx in range(self.num_places):
+            if place_idx == 0:
+                place_position = self.position
+            else:
+                place_position = self.position + \
+                    self.random.random(size=(2,)) * self.city_size
+            place = Place(self, place_idx, place_position)
+            self.costs[place_idx, place_idx] = 0
+            if place_idx > 0:
+                self.connect(place, self.places[-1])
+            if place_idx == self.num_places - 1:
+                self.connect(place, self.places[0])
+            self.places.append(place)
+
+        for place in self.places:
+            nearest_np_places = sorted(
+                self.places, key=lambda p: np.linalg.norm(place.position - p.position))[1: self.n_p + 1]
+            for nearby_place in nearest_np_places:
+                self.connect(place, nearby_place)
+
+    def __repr__(self) -> str:
+        return f'{self.id_no, self.position}'
+
+    def __str__(self) -> str:
+        return f'{self.id_no}'
+
+
 class CityNavigation(SearchProblem):
     '''TODO: Description of the problem goes here'''
 
-    def __init__(self, example_arg1, example_kwarg1=None):
+    def __init__(self, n_c, n_p, num_cities=150, num_places=150, state_size=100, city_size=1):
         # TODO: Feel free to add any args or kwargs. Can also do `*args, **kwargs`. These will be passed from MFMR.monitors.__init__.py
         # TODO: After this, fill out line 170 onwards in MFMR.monitors.__init__.py
         super().__init__()  # ! do not remove call to super class. See search_problem.py
-        self.cache = {}  # To cache heuristic value of states
-        # TODO: any other relevant initialization
+        # self.cache = {}  # To cache heuristic value of states
+        self.num_cities = num_cities
+        self.num_places = num_places
+        self.n_c = n_c
+        self.n_p = n_p
+        self.state_size = state_size
+        self.city_size = city_size
+        self.cities = []  # type: List[City]
+        self.costs = np.ones(shape=(self.num_cities, self.num_cities)) * np.inf
 
     def seed(self, seed):
         """Set seeds of any random variables here.
@@ -32,22 +105,76 @@ class CityNavigation(SearchProblem):
         super().seed(seed)  # ! Do not remove this line. It seeds `self.random`
 
     def get_obs(self):
-        '''returns problem specific arguments in a python list.
+        '''returns problem instance specific arguments in a python list.
         ! Each argument is normalized to be between 0 a 1..
         '''
         return []
 
+    def connect(self, city1: City, city2: City):
+        if city2 not in city1.neighbors:  # don't allow recalculation of cost
+            distance = np.linalg.norm(city1.position - city2.position)
+            cost = distance + 2
+            self.costs[city1.id_no, city2.id_no] = cost
+            self.costs[city2.id_no, city1.id_no] = cost
+            city1.neighbors.add(city2)
+            city2.neighbors.add(city1)
+
+    def distance(self, location1, location2):
+        city1, place1 = self.get_city_and_place(location1)
+        city2, place2 = self.get_city_and_place(location2)
+        return np.linalg.norm(place1.position - place2.position)
+
+    def get_city_and_place(self, location: Tuple[int, int]):
+        city = self.cities[location[0]]
+        place = city.places[location[1]]
+        return city, place
+
     def reset(self):
         '''Reset the search problem i.e. create a fresh instance.'''
-        self.cache.clear()  # Try writing heuristic function is such a way that no need to do this.
-        # TODO: Initialize code goes here.
+        self.costs = np.ones(
+            shape=(self.num_cities, self.num_cities)) * np.inf
+        self.cities = []  # type: List[City]
+
+        for city_idx in range(self.num_cities):
+            city_position = self.random.random(size=(2,)) * self.state_size
+            city = City(city_idx, city_position, self.n_p,
+                        self.random, self.num_places, self.city_size)
+            self.costs[city_idx, city_idx] = 0
+            if city_idx > 0:
+                self.connect(city, self.cities[-1])
+            if city_idx == self.num_cities - 1:
+                self.connect(city, self.cities[0])
+            self.cities.append(city)
+
+        for city in self.cities:
+            nearest_nc_cities = sorted(
+                self.cities, key=lambda c: np.linalg.norm(city.position - c.position))[1: self.n_c + 1]
+            for nearby_city in nearest_nc_cities:
+                self.connect(city, nearby_city)
+
+        self.start_location, self.end_location = (0, 0)
+        while self.start_location == self.end_location:
+            self.start_location = (self.random.randint(
+                self.num_cities), self.random.randint(self.num_places))
+            self.end_location = (self.random.randint(
+                self.num_cities), self.random.randint(self.num_places))
+
+        self.start_state = self.start_location
+        start_end_distance = self.distance(
+            self.start_location, self.end_location)
+
         # TODO: After initialization. Populate self.info dictionary:
         self.info = {
-            'blablabla': 'abc'
+            'starting_h': start_end_distance,
+            'n_c': self.n_c,
+            'n_p': self.n_p,
+            'num_cities': self.num_cities,
+            'num_places': self.num_places
         }
         # TODO: Log some interesting info about this particular instance:
-        logger.info('This instance has so and so parameters')
-        raise NotImplementedError()
+        logger.info(
+            f'Generated a city nav scenario. Start loc = {self.start_location}, end_loc = {self.end_location}')
+        return self.start_state
 
     def get_children_nodes(self, parent_node):
         '''Gets children "Nodes" from parent "node". `Node` class is described in search_problem.py.
@@ -58,29 +185,51 @@ class CityNavigation(SearchProblem):
         return super().get_children_nodes(parent_node)
 
     def goal_test(self, state):
-        raise NotImplementedError()
+        return state == self.end_location
 
-    def successors(self, state):
-        """Returns an iterable (python list, iterator or generator etc.) for successor states."""
+    def successors(self, state: Tuple[int, int]):
+        """Returns an iterable. Each item a dicationary of action and successor state."""
         # ! For good performance, especially for low memory consumption,
         # ! it is preferred to use `yield` style generator.
-        # ! An example from npuzzle has been commented out below:
-        # for action in ACTIONS:
-        #     location = self.get_blank_location(state)
-        #     next_location = self.get_next_blank_location(location, action)
 
-        #     if self.is_valid_blank_location(state, next_location):
-        #         next_puzzle = self.get_next_puzzle(state, action)
-        #         successor = {'state': next_puzzle, 'action': action}
-        #         yield successor
-        raise NotImplementedError()
+        cur_city, cur_place = self.get_city_and_place(state)
+
+        for neighbor_place in cur_place.neighbors:
+            action = f'goto place {neighbor_place}'
+            next_state = (cur_city.id_no, neighbor_place.id_no)
+            yield {'state': next_state, 'action': action}
+
+        if cur_place.id_no == 0:
+            '''can go to other cities as well'''
+            for neighbor_city in cur_city.neighbors:
+                action = f'goto city {neighbor_city}'
+                next_state = (neighbor_city.id_no, 0)
+                yield {'state': next_state, 'action': action}
 
     def cost(self, state, action, next_state):
-        raise NotImplementedError()
+        city1, place1 = self.get_city_and_place(state)
+        city2, place2 = self.get_city_and_place(next_state)
+        if city1 == city2:
+            return city1.costs[place1.id_no, place2.id_no]
+        else:
+            return self.costs[city1.id_no, city2.id_no]
 
     def heuristic(self, state):
-        raise NotImplementedError()
+        return self.distance(state, self.end_location)
 
     def hash_state(self, state):
         '''provides a hash value which uniquely identifies the states'''
-        raise NotImplementedError()
+        return str(state)
+
+
+if __name__ == "__main__":
+    city_nav = CityNavigation(3, 3, 150, 150)
+    city_nav.seed(0)
+    state = city_nav.reset()
+    print(city_nav.heuristic(state))
+    nexts = city_nav.successors(state)
+    for succ in nexts:
+        a, ns = succ['action'], succ['state']
+        cost = city_nav.cost(state, a, ns)
+        print(state, a, ns)
+        print(city_nav.heuristic(ns))
