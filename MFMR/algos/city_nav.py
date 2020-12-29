@@ -16,17 +16,17 @@ ldebug = logger.isEnabledFor(logging.DEBUG)
 
 
 class Place:
-    def __init__(self, parent_city, id_no: int, position: np.ndarray) -> None:
+    def __init__(self, parent_id_no, id_no: int, position: np.ndarray) -> None:
         self.position = position
-        self.neighbors = set()  # type: Set[Place]
+        self.neighbors = set()  # type: Set[int]
         self.id_no = id_no
-        self.parent_city = parent_city  # type: City
+        self.parent_id_no = parent_id_no
 
     def __repr__(self) -> str:
-        return f'{self.parent_city.id_no, self.id_no, self.position}'
+        return f'{self.parent_id_no, self.id_no, self.position}'
 
     def __str__(self) -> str:
-        return f'{self.parent_city.id_no, self.id_no}'
+        return f'{self.parent_id_no, self.id_no}'
 
 
 class City:
@@ -38,16 +38,16 @@ class City:
         self.random = random
         self.city_size = city_size
         self._generate_places()
-        self.neighbors = set()  # type: Set[City]
+        self.neighbors = set()  # type: Set[int]
 
     def connect(self, place1: Place, place2: Place):
-        if place2 not in place1.neighbors:  # don't allow recalculation of cost
+        if place2.id_no not in place1.neighbors:  # don't allow recalculation of cost
             distance = np.linalg.norm(place1.position - place2.position)
             cost = distance * (1 + self.random.random() * 0.1)
             self.costs[place1.id_no, place2.id_no] = cost
             self.costs[place2.id_no, place1.id_no] = cost
-            place1.neighbors.add(place2)
-            place2.neighbors.add(place1)
+            place1.neighbors.add(place2.id_no)
+            place2.neighbors.add(place1.id_no)
 
     def _generate_places(self):
         self.places = []  # type: List[Place]
@@ -59,7 +59,7 @@ class City:
             else:
                 place_position = self.position + \
                     self.random.random(size=(2,)) * self.city_size
-            place = Place(self, place_idx, place_position)
+            place = Place(self.id_no, place_idx, place_position)
             self.costs[place_idx, place_idx] = 0
             if place_idx > 0:
                 self.connect(place, self.places[-1])
@@ -111,13 +111,13 @@ class CityNavigation(SearchProblem):
         return []
 
     def connect(self, city1: City, city2: City):
-        if city2 not in city1.neighbors:  # don't allow recalculation of cost
+        if city2.id_no not in city1.neighbors:  # don't allow recalculation of cost
             distance = np.linalg.norm(city1.position - city2.position)
             cost = distance + 2
             self.costs[city1.id_no, city2.id_no] = cost
             self.costs[city2.id_no, city1.id_no] = cost
-            city1.neighbors.add(city2)
-            city2.neighbors.add(city1)
+            city1.neighbors.add(city2.id_no)
+            city2.neighbors.add(city1.id_no)
 
     def distance(self, location1, location2):
         city1, place1 = self.get_city_and_place(location1)
@@ -169,7 +169,9 @@ class CityNavigation(SearchProblem):
             'n_c': self.n_c,
             'n_p': self.n_p,
             'num_cities': self.num_cities,
-            'num_places': self.num_places
+            'num_places': self.num_places,
+            'start_loc': self.start_location,
+            'end_loc': self.end_location
         }
         # TODO: Log some interesting info about this particular instance:
         logger.info(
@@ -194,14 +196,16 @@ class CityNavigation(SearchProblem):
 
         cur_city, cur_place = self.get_city_and_place(state)
 
-        for neighbor_place in cur_place.neighbors:
+        for neighbor_place_id in cur_place.neighbors:
+            neighbor_place = cur_city.places[neighbor_place_id]
             action = f'goto place {neighbor_place}'
             next_state = (cur_city.id_no, neighbor_place.id_no)
             yield {'state': next_state, 'action': action}
 
         if cur_place.id_no == 0:
             '''can go to other cities as well'''
-            for neighbor_city in cur_city.neighbors:
+            for neighbor_city_id in cur_city.neighbors:
+                neighbor_city = self.cities[neighbor_city_id]
                 action = f'goto city {neighbor_city}'
                 next_state = (neighbor_city.id_no, 0)
                 yield {'state': next_state, 'action': action}

@@ -1,4 +1,7 @@
 import logging
+import os
+import pickle
+import hashlib
 import time as tm
 from typing import List
 
@@ -158,6 +161,8 @@ class AAstar(AsyncAlgo):
         self.random_adjust_weight = random_adjust_weight
         self.observe_ub = observe_ub
         self.viewer = None
+        self.problem_discription = str(
+            search_problem_cls) + str(search_problem_args) + str(search_problem_kwargs)
 
     @property
     def w_index(self):
@@ -267,7 +272,41 @@ class AAstar(AsyncAlgo):
     def reset(self):
         logger.info('Resetting')
         self.mem.clear()
-        self.problem.reset()
+        # important to make sure that the problem instances are generated deterministically:
+        # (self.random was seeded at the beginning of the experiment)
+        self.instance_seed = self.random.randint(1000000000)
+        self.instance_discription = self.problem_discription + \
+            ', seed=' + str(self.instance_seed)
+        self.instance_sha1 = hashlib.sha1(
+            self.instance_discription.encode()).hexdigest()
+        self.instance_file_name = f'MFMR/algos/saved_problem_instances/{self.instance_sha1}'
+        if os.path.exists(self.instance_file_name):
+            # os.remove(self.instance_file_name)
+            try:
+                with open(self.instance_file_name, 'rb') as f:
+                    self.problem = pickle.load(f)
+                logger.info(f'loaded {self.instance_sha1}')
+            except Exception as e:
+                logger.exception(str(e))
+                print(e)
+                logger.info(
+                    f'Load {self.instance_file_name} failed. Regenerating problem instance')
+                print(
+                    f'Load {self.instance_file_name} failed. Regenerating problem instance')
+                self.problem.seed(self.instance_seed)
+                self.problem.reset()
+                with open(self.instance_file_name, 'wb') as f:
+                    pickle.dump(self.problem, f)
+                logger.info(f'saved {self.instance_sha1}')
+        else:
+            self.problem.seed(self.instance_seed)
+            self.problem.reset()
+            with open(self.instance_file_name, 'wb') as f:
+                pickle.dump(self.problem, f)
+            logger.info(f'saved {self.instance_sha1}')
+        logger.info(str(self.problem.info))
+        # this is important because otherwise the async process starts with the same random state everytime:
+        self.rwastar_randomizer = np.random.RandomState(self.instance_seed)
         self.mem['w_index'] = self.w_init_index
         self.mem['action'] = 0
         self.start_time = tm.time()
@@ -326,7 +365,8 @@ class AAstar(AsyncAlgo):
         while len(open_lists) > 0:
             '''set open list weight to what the metareasoner wants'''
             if self.random_adjust_weight:
-                open_lists.w_index = self.random.randint(len(open_lists.ws))
+                open_lists.w_index = self.rwastar_randomizer.randint(
+                    len(open_lists.ws))
                 self.mem['w_index'] = open_lists.w_index
             else:
                 open_lists.w_index = self.w_index
@@ -432,7 +472,7 @@ class AAstar(AsyncAlgo):
             '''Done another iteration of the while loop : processed a node from the open list.
             Let's check for interruption or timeout'''
             if self.stop_condition(stats, wall_time, nodes_expanded):
-                print(nodes_expanded, nodes_expanded / wall_time)
+                # print(nodes_expanded, nodes_expanded / wall_time)
                 break
         '''
         At this point, EITHER the open list is empty and we have found an optimal solution
@@ -574,7 +614,6 @@ class AAstar(AsyncAlgo):
 
     def seed(self, seed):
         super().seed(seed)
-        self.problem.seed(seed)
 
     def render(self, mode='human'):
         pass

@@ -65,7 +65,7 @@ class NPuzzle(SearchProblem):
         self.info = {
             'puzzle_n': self.N,
             'puzzle_difficulty': self.cur_relative_difficulty,
-            # 'puzzle': self.start_state
+            'puzzle': self.start_state,
             'puzzle_manhattan': self.cur_difficulty
         }
         logger.info(
