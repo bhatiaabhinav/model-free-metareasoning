@@ -159,10 +159,15 @@ class AAstar(AsyncAlgo):
         self.simulate_ref_machine = simulate_ref_machine
         self.adjust_weight = adjust_weight
         self.random_adjust_weight = random_adjust_weight
+        print('Adjust:', self.adjust_weight,
+              'Random:', self.random_adjust_weight)
         self.observe_ub = observe_ub
         self.viewer = None
         self.problem_discription = str(
             search_problem_cls) + str(search_problem_args) + str(search_problem_kwargs)
+        self.search_problem_cls = search_problem_cls
+        self.episode_id = -1
+        print(self.problem_discription)
 
     @property
     def w_index(self):
@@ -272,38 +277,58 @@ class AAstar(AsyncAlgo):
     def reset(self):
         logger.info('Resetting')
         self.mem.clear()
+        self.episode_id += 1
         # important to make sure that the problem instances are generated deterministically:
         # (self.random was seeded at the beginning of the experiment)
         self.instance_seed = self.random.randint(1000000000)
+        # print(self.problem_discription)
         self.instance_discription = self.problem_discription + \
             ', seed=' + str(self.instance_seed)
+        self.problems_dir = f'problems/{self.search_problem_cls}'
+        # print(self.search_problem_cls)
         self.instance_sha1 = hashlib.sha1(
             self.instance_discription.encode()).hexdigest()
-        self.instance_file_name = f'MFMR/algos/saved_problem_instances/{self.instance_sha1}'
+        self.instance_file_name = f'{self.problems_dir}/{self.instance_sha1}'
         if os.path.exists(self.instance_file_name):
-            # os.remove(self.instance_file_name)
             try:
                 with open(self.instance_file_name, 'rb') as f:
                     self.problem = pickle.load(f)
                 logger.info(f'loaded {self.instance_sha1}')
+                print(f'loaded {self.instance_sha1}')
             except Exception as e:
                 logger.exception(str(e))
                 print(e)
-                logger.info(
+                logger.warn(
                     f'Load {self.instance_file_name} failed. Regenerating problem instance')
                 print(
                     f'Load {self.instance_file_name} failed. Regenerating problem instance')
                 self.problem.seed(self.instance_seed)
                 self.problem.reset()
-                with open(self.instance_file_name, 'wb') as f:
-                    pickle.dump(self.problem, f)
-                logger.info(f'saved {self.instance_sha1}')
+                os.makedirs(self.problems_dir, exist_ok=True)
+                try:
+                    with open(self.instance_file_name, 'wb') as f:
+                        pickle.dump(self.problem, f)
+                    logger.info(f'saved {self.instance_sha1}')
+                    print(f'saved {self.instance_sha1}')
+                except Exception as e:
+                    logger.info(
+                        f'could not save {self.instance_sha1}, Reason: {str(e)}')
+                    print(
+                        f'could not save {self.instance_sha1}, Reason: {str(e)}')
         else:
             self.problem.seed(self.instance_seed)
             self.problem.reset()
-            with open(self.instance_file_name, 'wb') as f:
-                pickle.dump(self.problem, f)
-            logger.info(f'saved {self.instance_sha1}')
+            os.makedirs(self.problems_dir, exist_ok=True)
+            try:
+                with open(self.instance_file_name, 'wb') as f:
+                    pickle.dump(self.problem, f)
+                logger.info(f'saved {self.instance_sha1}')
+                print(f'saved {self.instance_sha1}')
+            except Exception as e:
+                logger.info(
+                    f'could not save {self.instance_sha1}, Reason: {str(e)}')
+                print(
+                    f'could not save {self.instance_sha1}, Reason: {str(e)}')
         logger.info(str(self.problem.info))
         # this is important because otherwise the async process starts with the same random state everytime:
         self.rwastar_randomizer = np.random.RandomState(self.instance_seed)
@@ -496,6 +521,8 @@ class AAstar(AsyncAlgo):
         ub = (self.start_heuristic + 1) / (self.mem['cost_lb'] + 1)
         t = self.mem['time'] / self.t_max
         cpu = psutil.cpu_percent() / 100
+        if self.simulate_ref_machine:
+            cpu = 0
         n = self.mem['log_open_nodes']
         best_g = (self.start_heuristic + 1) / (self.mem['best_g'] + 1)
         best_h = (self.start_heuristic + 1) / (self.mem['best_h'] + 1)
