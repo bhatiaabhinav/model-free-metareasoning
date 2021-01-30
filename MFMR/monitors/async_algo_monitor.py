@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 import time
 from multiprocessing import Process
@@ -7,9 +8,9 @@ import gym
 import matplotlib.pyplot as plt
 import numpy as np  # noqa
 from gym.envs.classic_control.rendering import SimpleImageViewer
-
 from MFMR.algos.aastar import logger
 from MFMR.async_algo import AsyncAlgo
+import csv  # noqa
 
 # mpl.rcParams['text.antialiased'] = False
 fig = plt.gcf()
@@ -69,6 +70,14 @@ class AsyncAlgoMonitor(gym.Env):
 
         self.viewer = None
         self.episode_id = -1
+        # self.t_csv_writer = csv.writer(
+        #     open('t.csv', 'w', newline=''), delimiter=',')
+        # self.w_csv_writer = csv.writer(
+        #     open('w.csv', 'w', newline=''), delimiter=',')
+        # self.q_csv_writer = csv.writer(
+        #     open('q.csv', 'w', newline=''), delimiter=',')
+        # self.ub_csv_writer = csv.writer(
+        #     open('ub.csv', 'w', newline=''), delimiter=',')
 
     def get_action_meanings(self):
         return self.action_meanings
@@ -152,7 +161,7 @@ class AsyncAlgoMonitor(gym.Env):
                 t_prev = self.last_step_at
                 t_now = self.get_time()
                 while self.run_process.is_alive() and ((t_now - t_prev) < self.monitoring_interval):
-                    time.sleep(self.monitoring_interval / 10)
+                    time.sleep(0.01)
                     t_now = self.get_time()
                 # print(t_now - t_prev, t_now, t_prev)
 
@@ -188,7 +197,7 @@ class AsyncAlgoMonitor(gym.Env):
             info['w4'] = np.mean(
                 ws[part_lengths[0] + part_lengths[1] + part_lengths[2]:])
 
-        if (self.episode_id + 1) % 1 == 0:
+        if (self.episode_id + 1) % int(os.getenv('GraphFreq', 1)) == 0:
             if done:
                 x = self.render_ts
                 plt.clf()
@@ -237,6 +246,17 @@ class AsyncAlgoMonitor(gym.Env):
                     elif 'num_cities' in info:
                         wandb.log({"Plot": wandb.Image(
                             img, caption=f'{self.episode_id + 1} Episodes (Time cost = {time_costs[self.beta]})')})
+
+                # if len(self.render_qs) >= 49:
+                #     self.t_csv_writer.writerow(
+                #         [self.episode_id] + self.render_ts[0:49])
+                #     self.w_csv_writer.writerow(
+                #         [self.episode_id] + self.render_ws[0:49])
+                #     self.q_csv_writer.writerow(
+                #         [self.episode_id] + self.render_qs[0:49])
+                #     self.ub_csv_writer.writerow(
+                #         [self.episode_id] + self.render_q_ubs[0:49])
+
         return self.get_obs(), reward, done, info
 
     def get_obs(self):

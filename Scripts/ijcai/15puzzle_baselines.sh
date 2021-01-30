@@ -22,5 +22,5 @@ w=5 python -m MFMR.deepRL A2.0Astar-4puzzle-v0 Random 200000 --num_episodes_to_r
 
 sleep 5
 
-Adjust=True Random=True python -m MFMR.deepRL A2.0Astar-4puzzle-v0 Random 200000 --num_episodes_to_run=500 --algo_suffix=seed10_random_tc10_sim_4puzzle_ijcai --tags random sim ijcai 4puzzle --seed=10 --RPE_av_over=500 --no_render --no_monitor --overwrite &
+Adjust=True python -m MFMR.deepRL A2.0Astar-4puzzle-v0 Random 200000 --num_episodes_to_run=500 --algo_suffix=seed10_random_tc10_sim_4puzzle_ijcai --tags random sim ijcai 4puzzle --seed=10 --RPE_av_over=500 --no_render --no_monitor --overwrite &
 

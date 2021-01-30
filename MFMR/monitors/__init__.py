@@ -284,8 +284,9 @@ for w in np.arange(1, 3.25, 0.1):
                      'weight': np.round(float(os.getenv('w', 1)), 2),
                      'weight_max': 5,
                      'weight_interval': 0.25,
-                     'time_max': 10,
-                     'ref_nodes_budget': 6000,
+                     # For IJCAI, used 5s contract. 10s for ICAPS.
+                     'time_max': 5,
+                     'ref_nodes_budget': 3000,
                      'simulate_ref_machine': True,
                      'adjust_weight': bool(os.getenv('Adjust', False)),
                      'random_adjust_weight': bool(os.getenv('Random', False)),
