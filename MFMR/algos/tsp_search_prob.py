@@ -104,7 +104,7 @@ class TSPProblem(SearchProblem):
 
         self.start_state = [0]
         self.distances, self.sparsity = self.create_tsp(
-            self.N, sparsity=self.sparsity_range[0] + self.random.rand() * self.sparsity_range[1])
+            self.N, sparsity=self.sparsity_range[0] + self.random.rand() * (self.sparsity_range[1] - self.sparsity_range[0]))
         self.info = {
             'tsp_n': self.N,
             'tsp_sparsity': self.sparsity
